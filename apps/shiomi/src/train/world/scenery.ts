@@ -7,6 +7,7 @@ import { merge, rng } from './geo';
 import { onPlatform } from './track';
 import { AOBA_TRACK, SAZA_TRACK } from '../net/network';
 import { buildTown } from './town';
+import { inPort } from '../../world/port';
 
 export interface Scenery { near: THREE.Object3D[]; update(cam: THREE.Vector3, o: { grass: number; trees: number; treeShadow: number }): void; }
 
@@ -125,6 +126,7 @@ export async function buildScenery(group: THREE.Group, renderer: THREE.WebGLRend
     if (Math.abs(s - riverS(d)) < 22) return true;
     const f = at(s, d);
     if (AOBA_TRACK.nearest(f.x, f.z, 8).dist < 12 || SAZA_TRACK.nearest(f.x, f.z, 8).dist < 13) return true;
+    if (inPort(f.x, f.z, d)) return true; // 港町（トラックの世界）の中
     return false;
   };
   for (let s = -250; s < LENGTH + 250; s += 3) {
@@ -154,6 +156,7 @@ export async function buildScenery(group: THREE.Group, renderer: THREE.WebGLRend
         if (avoid(s, d) && !(onPlatform(s) && side < 0)) continue;
         if (side > 0 && onPlatform(s)) continue;
         const f = at(s, d);
+        if (inPort(f.x, f.z, d)) continue;
         const g = ground(s, d, f.x, f.z);
         trees.push({ x: f.x, y: g.h - 0.2, z: f.z, rot: r() * Math.PI * 2, sc: 0.8 + r() * 0.35, v: 4, ad });
       }
@@ -251,6 +254,7 @@ export async function buildScenery(group: THREE.Group, renderer: THREE.WebGLRend
   const propBuckets = new Map<number, { id: string; vi: number; m: THREE.Matrix4 }[]>();
   const put = (s: number, id: string, d: number, scale: number, yaw: number) => {
     const f = at(s, d);
+    if (Math.abs(d - C) > 15 && inPort(f.x, f.z, d)) return; // 港町の地面の板の下になる所
     const g = ground(s, d, f.x, f.z);
     if (g.paddy > 0.3 || g.h < 0.4) return;
     const k = Math.floor(s / PB);

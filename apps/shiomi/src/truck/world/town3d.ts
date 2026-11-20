@@ -6,6 +6,49 @@ import { Geo, flat, edgeFrame, nodeHalf } from './roads3d';
 import { canvas, ctex, rng, grain, pbr, box } from './tex';
 import { overlap } from '../sim/collide';
 import type { Box } from '../sim/vehicle';
+import { RAIL, LAND, CROSS_LOCAL, roadLift } from '../../world/port';
+
+/** 線路（複線の真ん中）の x を、港の座標の z から引く（港町の中では、線路は南北にのびる） */
+function railX(z: number): number | null {
+  for (let i = 0; i < RAIL.length - 1; i++) {
+    const a = RAIL[i], b = RAIL[i + 1];
+    if ((z - a.z) * (z - b.z) <= 0 && a.z !== b.z) return a.x + (b.x - a.x) * (z - a.z) / (b.z - a.z);
+  }
+  return null;
+}
+/** 線路の両側で、地面の板を切っておく幅（複線の真ん中から） */
+export const RAIL_GAP = 16;
+/** 線路ぞいの柵（複線の真ん中から） */
+export const FENCE_D = 9;
+
+/**
+ * 港町の地面の板。線路のまわり（±RAIL_GAP）は切って、ひかり野線の路盤と地形を見せる。
+ * 線路の西側は、積み込み場とその北、貨物駅のまわりだけ（潮見台の西の町は、ひかり野線の町のまま）。
+ */
+function buildGround(): THREE.BufferGeometry {
+  const g = new Geo();
+  const uv = (x: number, z: number): [number, number] => [x / 6, z / 6];
+  const strip = (x0a: number, x1a: number, x0b: number, x1b: number, z0: number, z1: number) => {
+    if (x1a - x0a < 0.5 && x1b - x0b < 0.5) return;
+    g.quad([[x0a, 0, z0], [x0b, 0, z1], [x1b, 0, z1], [x1a, 0, z0]], [uv(x0a, z0), uv(x0b, z1), uv(x1b, z1), uv(x1a, z0)]);
+  };
+  const X1 = LAND.x1 + 30, Z0 = LAND.z0 - 170, Z1 = LAND.z1 + 110;
+  for (let z0 = Z0; z0 < Z1; z0 += 10) {
+    const z1 = z0 + 10;
+    const ra = railX(z0), rb = railX(z1);
+    if (ra === null || rb === null) {
+      // 線路の南の端より南：貨物駅のまわりから東ぜんぶ
+      strip(120, X1, 120, X1, z0, z1);
+      continue;
+    }
+    // 東側
+    strip(ra + RAIL_GAP, X1, rb + RAIL_GAP, X1, z0, z1);
+    // 西側：積み込み場とその北（z < 100）、貨物駅のまわり（z 760〜）
+    if (z1 <= 100) strip(-46, ra - RAIL_GAP, -46, rb - RAIL_GAP, z0, z1);
+    else if (z0 >= 760) strip(120, ra - RAIL_GAP, 120, rb - RAIL_GAP, z0, z1);
+  }
+  return g.build();
+}
 
 type Facade = 'shed' | 'shedDoor' | 'apt' | 'house' | 'shop';
 // 壁の絵 1 枚が表す大きさ（横 m, 縦 m）
@@ -86,22 +129,32 @@ export function buildTown(): Town {
   const obstacles: Box[] = [];
   const R = rng(2024);
 
-  // ---- 地面と海 ----
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1800, 2200), pbr('gravel_floor_02', 1800 / 6, 2200 / 6, { color: 0x9e998e }));
-  ground.rotation.x = -Math.PI / 2; ground.position.set(830, -0.01, 250); ground.receiveShadow = true; group.add(ground);
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1600, 2600), new THREE.MeshStandardMaterial({ color: 0x1f3b4f, roughness: 0.12, metalness: 0.3 }));
-  sea.rotation.x = -Math.PI / 2; sea.position.set(-845, -1.4, 250); group.add(sea);
-  box(1.2, 3, 2200, new THREE.MeshStandardMaterial({ color: 0x8d8a83, roughness: 0.9 }), -45.6, -1.5, 250, group);
-  obstacles.push({ cx: -46.5, cz: 250, h: 0, len: 3, wid: 2200 }); // 岸壁（海に落ちない）
+  // ---- 地面と岸壁（海は、ひかり野線の海） ----
+  const ground = new THREE.Mesh(buildGround(), pbr('gravel_floor_02', 1, 1, { color: 0x9e998e }));
+  ground.position.y = -0.01; ground.receiveShadow = true; group.add(ground);
+  // 岸壁：海面（港町の地面より 5 m ほど下）まで届く壁
+  box(1.2, 9, 1200, new THREE.MeshStandardMaterial({ color: 0x8d8a83, roughness: 0.9 }), -45.6, -4.4, -250, group);
+  obstacles.push({ cx: -46.5, cz: -250, h: 0, len: 3, wid: 1200 }); // 岸壁（海に落ちない）
 
   // ---- 建物を置いてはいけない所（道・歩道・交差点・構内） ----
   const keep: Box[] = [];
+  const fence: Box[] = [];
   for (const e of EDGES) {
     const f = edgeFrame(e), k = KIND[e.kind];
     keep.push({ cx: (f.a.x + f.b.x) / 2, cz: (f.a.z + f.b.z) / 2, h: Math.atan2(-f.dz, f.dx), len: f.L + 2, wid: k.w + 2 * k.walk + 2 });
   }
   for (const n of NODES) { const h = nodeHalf(n.id) + 6; keep.push({ cx: n.x, cz: n.z, h: 0, len: h * 2, wid: h * 2 }); }
   for (const l of LOTS) keep.push({ cx: (l.x0 + l.x1) / 2, cz: (l.z0 + l.z1) / 2, h: 0, len: l.x1 - l.x0 + 6, wid: l.z1 - l.z0 + 6 });
+  // 線路と柵の外の 6 m（建物を置かない）。柵は当たり判定にも入れる（踏切だけあける）
+  for (let i = 0; i < RAIL.length - 1; i++) {
+    const a = RAIL[i], b = RAIL[i + 1];
+    const L = Math.hypot(b.x - a.x, b.z - a.z), h = Math.atan2(-(b.z - a.z), b.x - a.x);
+    const cx = (a.x + b.x) / 2, cz = (a.z + b.z) / 2;
+    keep.push({ cx, cz, h, len: L + 1, wid: 2 * (FENCE_D + 6) });
+    if (Math.abs(cz - CROSS_LOCAL.z) < 16 && Math.abs(cx - CROSS_LOCAL.x) < 40) continue;
+    const rx = -(b.z - a.z) / L, rz = (b.x - a.x) / L; // 線路の左
+    for (const side of [1, -1]) fence.push({ cx: cx + rx * FENCE_D * side, cz: cz + rz * FENCE_D * side, h, len: L + 0.2, wid: 0.3 });
+  }
   const placed: Box[] = [];
   const free = (b: Box) => {
     if (b.cx - b.len / 2 < -40 || b.cx + b.len / 2 > 1620 || b.cz - b.wid / 2 < -640 || b.cz + b.wid / 2 > 1080) return false;
@@ -169,7 +222,7 @@ export function buildTown(): Town {
     // 名前, 英字, 色, x0, z0, x1, z1, 高さ, 看板の面
     ['ミドリ物流センター', 'MIDORI LOGISTICS', '#2f7552', 1032, -548, 1172, -474, 15, 's'],
     ['潮見精機 第二工場', 'SHIOMI SEIKI', '#2d5c97', 945, 664, 1088, 734, 12, 'n'],
-    ['潮見貨物駅', 'SHIOMI FREIGHT TERMINAL', '#8a2747', 175, 800, 305, 836, 9, 's'],
+    ['潮見貨物駅', 'SHIOMI FREIGHT TERMINAL', '#8a2747', 160, 800, 270, 836, 9, 's'],
   ];
   for (const [name, sub, color, x0, z0, x1, z1, h, faceSide] of named) {
     walls.shed.color = [1, 1, 1]; walls.shedDoor.color = [1, 1, 1];
@@ -181,16 +234,8 @@ export function buildTown(): Town {
     else if (faceSide === 'n') { sg.position.set(cx, h - 3.5, z0 - 0.08); sg.rotation.y = Math.PI; }
     group.add(sg);
   }
-  // 貨物駅：線路と、12ft コンテナの山
+  // 貨物駅：12ft コンテナの山（線路は、ひかり野線の線路の西に並べる着発線。次の段階で作る）
   {
-    const rail = new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.35, metalness: 0.8 });
-    const bed = new THREE.Mesh(new THREE.PlaneGeometry(420, 14), pbr('gravel_floor_02', 70, 3, { color: 0x8a857c }));
-    bed.rotation.x = -Math.PI / 2; bed.position.set(160, 0.01, 985); bed.receiveShadow = true; group.add(bed);
-    for (const z of [980, 990]) for (const o of [-0.53, 0.53]) box(420, 0.16, 0.07, rail, 160, 0.2, z + o, group, false);
-    const sl = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 0.14, 2.4), new THREE.MeshStandardMaterial({ color: 0x8d8a84, roughness: 0.9 }), 1300);
-    const m = new THREE.Matrix4(); let k = 0;
-    for (const z of [980, 990]) for (let x = -50; x < 370 && k < 1300; x += 0.65) sl.setMatrixAt(k++, m.makeTranslation(x, 0.08, z));
-    group.add(sl);
     const maroon = new THREE.MeshStandardMaterial({ color: 0x8a2747, roughness: 0.6, metalness: 0.2 });
     for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) {
       const x = 162 + i * 4.1, z = 852 + j * 2.6;
@@ -221,6 +266,38 @@ export function buildTown(): Town {
     });
     trunk.castShadow = crown.castShadow = true;
     group.add(trunk, crown);
+  }
+
+  // ---- 線路ぞいの柵（コンクリートの柱と金網の上の線） ----
+  {
+    const postG = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1.5, 0.12).translate(0, 0.75, 0), new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.9 }), fence.length * 4);
+    const railM = new THREE.MeshStandardMaterial({ color: 0x8f9aa0, metalness: 0.5, roughness: 0.5 });
+    const railG = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.05, 0.05), railM, fence.length * 2);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1);
+    let k = 0, r = 0;
+    for (const f of fence) {
+      const fx = Math.cos(f.h), fz = -Math.sin(f.h);
+      for (let t = -0.5; t < 0.5; t += 0.25) postG.setMatrixAt(k++, m.makeTranslation(f.cx + fx * f.len * t, 0, f.cz + fz * f.len * t));
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.h);
+      for (const y of [0.4, 1.45]) railG.setMatrixAt(r++, m.compose(v.set(f.cx, y, f.cz), q, sc.set(f.len, 1, 1)));
+    }
+    postG.count = k; railG.count = r;
+    postG.castShadow = true;
+    group.add(postG, railG);
+    obstacles.push(...fence);
+  }
+
+  // ---- 踏切の板：臨港道路が線路を渡る所で、レール面の高さまで上がる ----
+  {
+    const g = new Geo();
+    const W = 11; // 道の半分の幅（歩道まで）
+    for (let x = CROSS_LOCAL.x - 32; x < CROSS_LOCAL.x + 32; x += 1) {
+      const y = (px: number, pz: number) => roadLift(px, pz) + 0.03;
+      g.quad([[x, y(x, -W), -W], [x, y(x, W), W], [x + 1, y(x + 1, W), W], [x + 1, y(x + 1, -W), -W]],
+        [[x / 4, -W / 4], [x / 4, W / 4], [(x + 1) / 4, W / 4], [(x + 1) / 4, -W / 4]]);
+    }
+    const deck = new THREE.Mesh(g.build(), pbr('asphalt_02', 1, 1, { color: 0x8c8c8c }));
+    deck.receiveShadow = true; group.add(deck);
   }
 
   // ---- まとめて描く ----

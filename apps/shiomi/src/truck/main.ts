@@ -20,6 +20,18 @@ import { CRANE_TOL } from './sim/crane';
 import { buildPractice } from './world/practice';
 import { buildSky } from './world/sky';
 import { Governor, LEVELS, startLevel } from './perf';
+// ひかり野線の世界（地形・線路・海・木と町）と、そこを走る列車
+import { OFFSET, CROSS_LOCAL, roadLift, railDist } from '../world/port';
+import type { Box } from './sim/vehicle';
+import { Railway } from '../world/railway';
+import { buildTerrain } from '../train/world/terrain';
+import { buildTrack, type TrackWorld } from '../train/world/track';
+import { buildLines, type LinesWorld } from '../train/world/lines';
+import { buildWater } from '../train/world/water';
+import { buildScenery, type Scenery } from '../train/world/scenery';
+import { texturesReady, setAniso as setWorldAniso } from '../train/world/assets';
+import { T } from '../train/route';
+import { hit } from './sim/collide';
 
 const $ = (id: string) => document.getElementById(id)!;
 const params = new URLSearchParams(location.search);
@@ -40,23 +52,30 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 setAniso(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
+setWorldAniso(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.3, 1500);
-const sky = buildSky(scene);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.3, 6000);
+// 港町（トラックの世界）は、港の座標のまま root の中に置き、root ごとひかり野線の世界の中へずらす
+const root = new THREE.Group();
+root.position.set(OFFSET.x, OFFSET.y, OFFSET.z);
+scene.add(root);
+// カメラの位置と向きは港の座標で決めて（camL）、描く前に世界の座標へ移す
+const camL = new THREE.PerspectiveCamera();
+const sky = buildSky(scene, root);
 loadEnv(renderer).then((env) => { if (env) { scene.environment = env; scene.environmentIntensity = 0.95; } });
 
 // ---------- 練習場とトラック ----------
 let spec: TruckSpec = SEMI_40;
 const practice = buildPractice();
-scene.add(practice.group);
-scene.add(buildRoads());
+root.add(practice.group);
+root.add(buildRoads());
 const town = buildTown();
-scene.add(town.group);
+root.add(town.group);
 const grid = new Grid([...practice.obstacles, ...town.obstacles]);
 // トラックは 2 種類：港の 40ft はトラクターとシャーシ、駅の 12ft は単車
 const semiModel = buildTractor(SEMI_40), rigidModel = buildTractor(RIGID_12FT);
 let model = semiModel;
-scene.add(semiModel.tractor, semiModel.trailer!, rigidModel.tractor);
+root.add(semiModel.tractor, semiModel.trailer!, rigidModel.tractor);
 rigidModel.tractor.visible = false;
 function useTruck(kind: 'semi' | 'rigid') {
   spec = kind === 'semi' ? SEMI_40 : RIGID_12FT;
@@ -70,18 +89,68 @@ const CARGO = 18000;
 let s: TruckState = createState(spec, practice.start.x, practice.start.z, practice.start.h, 0);
 const SLOT_Y = 1.3; // 荷台の上でのコンテナの中心の高さ（cargoSlot から）
 const deckY = semiModel.cargoSlot.position.y + SLOT_Y - ISO.H / 2;
-const rig = new CraneRig(practice.target, practice.rtg, practice.trolley, deckY, scene);
+const rig = new CraneRig(practice.target, practice.rtg, practice.trolley, deckY, root);
 function hangBox() { semiModel.cargoSlot.remove(box); rig.hook.add(box); box.position.set(0, -ISO.H / 2, 0); box.rotation.set(0, 0, 0); }
 function rnd(a: number, b: number) { return (Math.random() < 0.5 ? -1 : 1) * (a + Math.random() * (b - a)); }
 hangBox();
 rig.reset(rnd(2, 4), rnd(1, 2));
 function placeModel() {
-  model.tractor.position.set(s.x, 0, s.z);
+  // 踏切の板の上では、そのぶん持ち上げる
+  model.tractor.position.set(s.x, roadLift(s.x, s.z), s.z);
   model.tractor.rotation.y = s.h;
-  if (model.trailer) { model.trailer.position.set(s.tx, 0, s.tz); model.trailer.rotation.y = s.th; }
+  if (model.trailer) { model.trailer.position.set(s.tx, roadLift(s.tx, s.tz), s.tz); model.trailer.rotation.y = s.th; }
   model.update(s.steer, s.odo);
 }
 placeModel();
+
+// ---------- ひかり野線の世界と、そこを走る列車 ----------
+const world = new THREE.Group();
+world.visible = false; // 材質の手直しをつなぐまで描かない（先に描くと、手直しなしの形で作られてしまう）
+scene.add(world);
+const uTime = { value: 0 };
+let track: TrackWorld | null = null, lines: LinesWorld | null = null, scenery: Scenery | null = null;
+let railway: Railway | null = null;
+/** ひかり野線の材質の手直し（地形の混ぜ方・水面の波）をつなぐ */
+function finalize(o: THREE.Object3D) {
+  o.traverse((x) => {
+    const m = x as THREE.Mesh;
+    if (!m.isMesh) return;
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+      if (mat.userData.done) continue;
+      mat.userData.done = true;
+      const patch = mat.userData.patch as ((sh: THREE.WebGLProgramParametersWithUniforms) => void) | undefined;
+      if (patch) { const prev = mat.onBeforeCompile; mat.onBeforeCompile = (sh, r) => { prev.call(mat, sh, r); patch(sh); }; }
+      const key = (mat.userData.key as string | undefined) ?? (patch ? 'terrain' : undefined);
+      if (key) mat.customProgramCacheKey = () => key;
+    }
+  });
+}
+const worldReady = (async () => {
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  await tick();
+  const terrainMat = buildTerrain(world);
+  terrainMat.userData.key = 'terrain';
+  await tick();
+  const mats: Record<string, THREE.Material> = {};
+  track = buildTrack(world, mats);
+  lines = buildLines(world, mats);
+  buildWater(world, uTime);
+  await tick();
+  scenery = await buildScenery(world, renderer);
+  finalize(world);
+  world.visible = true;
+  // ほかの列車は 7 時から時刻表どおりに走る
+  railway = new Railway(world, track, lines, finalize, T(7, 0, 0));
+  await Promise.race([texturesReady(), new Promise((r) => setTimeout(r, 15000))]);
+})();
+
+// ---------- 踏切（臨港道路が線路を渡る所） ----------
+// 遮断機の手前の停止線：鳴っている間は、ここから先へ入れない
+const railX0 = (() => { let best = { x: CROSS_LOCAL.x, d: Infinity }; for (let x = CROSS_LOCAL.x - 30; x <= CROSS_LOCAL.x + 30; x += 0.5) { const r = railDist(x, 0); if (r.d < best.d) best = { x, d: r.d }; } return best.x; })();
+const GATES: Box[] = [-1, 1].map((k) => ({ cx: railX0 + k * 11, cz: CROSS_LOCAL.z, h: 0, len: 0.6, wid: 16 }));
+/** 線路の上（列車が通る所） */
+const ON_RAILS: Box[] = [{ cx: railX0, cz: CROSS_LOCAL.z, h: 0, len: 13, wid: 16 }];
+let crossWarnT = 0;
 
 // ---------- 入力 ----------
 const tilt = new Tilt();
@@ -148,7 +217,9 @@ addEventListener('resize', checkRotate);
 
 // ---------- はじめる ----------
 const startTilt = $('startTilt') as HTMLButtonElement;
-manager.onLoad = () => { startTilt.disabled = false; startTilt.textContent = '傾きを使って運転する'; };
+const truckLoaded = new Promise<void>((res) => { manager.onLoad = () => res(); });
+startTilt.textContent = '町と線路を用意しています…';
+void Promise.all([truckLoaded, worldReady]).then(() => { startTilt.disabled = false; startTilt.textContent = '傾きを使って運転する'; });
 function begin(m: 'tilt' | 'keys') {
   mode = m;
   running = true;
@@ -217,7 +288,12 @@ function autoControls(): { steer: number; throttle: number; brake: number } | nu
   const k = trip.stepS.findIndex((v) => v > n.s + 5);
   const toTurn = k < 0 ? end : trip.stepS[k] - n.s;
   // 停止枠の手前ではごくゆっくりにして、枠の真ん中で止める
-  const target = end < 0.05 ? 0 : end < 6 ? 0.6 : end < 40 ? 2 : toTurn < 45 ? 4.5 : 11;
+  let target = end < 0.05 ? 0 : end < 6 ? 0.6 : end < 40 ? 2 : toTurn < 45 ? 4.5 : 11;
+  // 踏切が鳴っていたら、停止線の手前で待つ
+  if (railway?.crossingActive(0) && Math.abs(s.z - CROSS_LOCAL.z) < 10) {
+    const dir = Math.sign(Math.cos(s.h)), toGate = (railX0 - dir * 11 - s.x) * dir - spec.front;
+    if (toGate > -1 && toGate < 45) target = toGate < 3 ? 0 : Math.min(target, toGate * 0.25);
+  }
   const v = s.v;
   return { steer: Math.max(-1, Math.min(1, -err * 3)), throttle: v < target ? 0.5 : 0, brake: end < 0.05 ? 1 : v > target + 0.3 ? 0.6 : 0 };
 }
@@ -231,6 +307,10 @@ let camH = s.h;
 const camPos = new THREE.Vector3(), look = new THREE.Vector3();
 const cranePos = new THREE.Vector3(), craneQuat = new THREE.Quaternion();
 let blend = 0; // 0 = 運転の視点、1 = クレーンの視点
+// 確かめる用：?railspeed=20 で、列車だけ 20 倍の速さで進める
+const RAIL_SPEED = Number(params.get('railspeed') ?? 1) || 1;
+const RAIL_STOP = Number(params.get('railstop') ?? 0);
+const OVERVIEW = params.get('overview')?.split(',').map(Number) ?? null;
 function placeCamera(dt: number) {
   // 追いかける向きは、トラクターとトレーラーの間をなめらかに
   const want = Math.atan2(Math.sin(s.h) + Math.sin(s.th) * 0.6, Math.cos(s.h) + Math.cos(s.th) * 0.6);
@@ -241,26 +321,31 @@ function placeCamera(dt: number) {
   if (view === 'chase') {
     camPos.set(s.x - fx * 25, 8.5, s.z - fz * 25);
     look.set(s.x + hx * 12, 1.5, s.z + hz * 12);
-    camera.position.lerp(camPos, Math.min(1, dt * 6));
+    camL.position.lerp(camPos, Math.min(1, dt * 6));
   } else if (view === 'cab') {
     const rx = -hz, rz = hx; // 右ハンドル：運転席は右側
-    camera.position.set(s.x + hx * (spec.front - 0.9) + rx * 0.55, 2.75, s.z + hz * (spec.front - 0.9) + rz * 0.55);
-    look.set(camera.position.x + hx * 20, 2.2, camera.position.z + hz * 20);
+    camL.position.set(s.x + hx * (spec.front - 0.9) + rx * 0.55, 2.75, s.z + hz * (spec.front - 0.9) + rz * 0.55);
+    look.set(camL.position.x + hx * 20, 2.2, camL.position.z + hz * 20);
   } else {
     camPos.set(s.x - fx * 8, 46, s.z - fz * 8);
     look.set(s.x + fx * 6, 0, s.z + fz * 6);
-    camera.position.lerp(camPos, Math.min(1, dt * 4));
+    camL.position.lerp(camPos, Math.min(1, dt * 4));
   }
-  camera.lookAt(look);
+  camL.lookAt(look);
   // 積み込みのときは、クレーンの運転室の視点へなめらかに移る
   const k = blend * blend * (3 - 2 * blend);
   if (k > 0) {
     rig.cameraPose(cranePos, craneQuat);
-    camera.position.lerp(cranePos, k);
-    camera.quaternion.slerp(craneQuat, k);
+    camL.position.lerp(cranePos, k);
+    camL.quaternion.slerp(craneQuat, k);
   }
   // スマホを傾けても景色は水平のまま：傾けた分だけカメラを逆に回す
-  if (mode === 'tilt' && tilt.enabled) camera.rotateZ(-tilt.roll);
+  if (mode === 'tilt' && tilt.enabled) camL.rotateZ(-tilt.roll);
+  // 確かめる用：?overview=x,y,z,tx,tz で、港の座標の決まった所から見下ろす
+  if (OVERVIEW) { camL.position.set(OVERVIEW[0], OVERVIEW[1], OVERVIEW[2]); camL.lookAt(OVERVIEW[3], 0, OVERVIEW[4]); }
+  // 港の座標 → 世界の座標
+  camera.position.set(camL.position.x + OFFSET.x, camL.position.y + OFFSET.y, camL.position.z + OFFSET.z);
+  camera.quaternion.copy(camL.quaternion);
 }
 
 // ---------- 画質（60 FPS を保つ） ----------
@@ -327,7 +412,7 @@ function parkAt(dock: { x: number; z: number; h: number }, cargo: number) {
   const c = (spec.front - 2.4 - spec.rear) / 2;
   s = createState(spec, dock.x - Math.cos(dock.h) * c, dock.z + Math.sin(dock.h) * c, dock.h, cargo);
   camH = s.h;
-  camera.position.set(s.x - Math.cos(s.h) * 25, 8.5, s.z + Math.sin(s.h) * 25);
+  camL.position.set(s.x - Math.cos(s.h) * 25, 8.5, s.z + Math.sin(s.h) * 25);
 }
 // 駅の人による積み下ろし：1 個ずつ、上から下ろす（または上へ持ち上げる）短い動き
 let handling: { kind: 'load' | 'unload'; t: number; done: () => void } | null = null;
@@ -725,11 +810,31 @@ function frame(now: number) {
     if (grid.hit(bodies(spec, s)) >= 0) {
       s = before; s.v = 0;
       if (hitCool <= 0) { hits++; toast(`ぶつかりました（${hits} 回目）`); hitCool = 1.5; }
+    } else if (railway?.crossingActive(0) && hit(bodies(spec, s), GATES) >= 0 && hit(bodies(spec, before), GATES) < 0) {
+      // 踏切が鳴っている間は、遮断機の内へ入らない
+      s = before; s.v = 0;
+      if (crossWarnT <= 0) { toast('踏切が鳴っています：列車が通るまで待ちます'); crossWarnT = 4; }
     }
   }
+  crossWarnT -= dt;
+  // 踏切の上で列車が来たら事故：スタートへ戻す
+  if (railway && running && railway.onCrossing(0) && hit(bodies(spec, s), ON_RAILS) >= 0) {
+    toast('列車とぶつかりました：踏切では、鳴っていたら入らないで待ちます');
+    restart();
+  }
+  // ひかり野線の列車・信号・踏切
+  uTime.value += dt;
+  // 確かめる用：?railstop=600 で、ひかり野線の列車がそこまで来たら鉄道を止める（写真を撮る）
+  const hik = railway?.debug().ais.find((a) => a.id.startsWith('ai-hikari'));
+  if (!(RAIL_STOP && hik && hik.s >= RAIL_STOP)) railway?.update(dt * RAIL_SPEED);
+  (window as unknown as { __tw: unknown }).__tw = { rail: railway?.debug(), x: s.x, z: s.z, v: s.v, phase };
   placeModel();
   sky.follow(s.x, s.z);
   placeCamera(dt);
+  if (scenery && track && lines) {
+    scenery.update(camera.position, LEVELS[gov.level]);
+    for (const im of [...track.sleepers, ...lines.sleepers]) im.visible = im.boundingSphere!.center.distanceTo(camera.position) < 450;
+  }
   if (running) updateHud(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

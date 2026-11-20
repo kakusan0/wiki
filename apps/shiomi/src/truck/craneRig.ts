@@ -17,7 +17,7 @@ export class CraneRig {
   private ropes: THREE.Mesh[] = [];
   private fx: number; private fz: number; private rx: number; private rz: number;
 
-  constructor(private lane: Lane, private rtg: THREE.Group, private trolley: THREE.Group, private deckY: number, scene: THREE.Scene) {
+  constructor(private lane: Lane, private rtg: THREE.Group, private trolley: THREE.Group, private deckY: number, scene: THREE.Object3D) {
     this.fx = Math.cos(lane.h); this.fz = -Math.sin(lane.h);
     this.rx = -this.fz; this.rz = this.fx;
     box(12.2, 0.45, 2.4, yellow, 0, 0.25, 0, this.spreader);

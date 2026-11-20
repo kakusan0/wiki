@@ -21,13 +21,13 @@ export interface Place {
 export const NODES: Node[] = [
   { id: 'gate', x: 215, z: 0 },
   { id: 'A', x: 420, z: 0 }, { id: 'B', x: 800, z: 0 }, { id: 'C', x: 1200, z: 0 }, { id: 'D', x: 1500, z: 0 },
-  { id: 'E', x: 420, z: 500 }, { id: 'F', x: 420, z: 900 },
+  { id: 'E', x: 420, z: 500 }, { id: 'F', x: 420, z: 930 },
   { id: 'G', x: 800, z: -300 }, { id: 'M1', x: 1100, z: -300 }, { id: 'J', x: 1200, z: -300 },
   { id: 'H', x: 800, z: 500 }, { id: 'I', x: 800, z: 900 },
   { id: 'N1', x: 1000, z: 500 }, { id: 'K', x: 1200, z: 500 },
   { id: 'M2', x: 1100, z: -362 },  // ミドリ物流センターの構内
   { id: 'N2', x: 1000, z: 560 },   // 潮見精機の構内
-  { id: 'S1', x: 330, z: 900 },    // 潮見貨物駅の構内
+  { id: 'S1', x: 296, z: 930 },    // 潮見貨物駅の構内（東どなりは線路の端）
 ];
 
 export const EDGES: Edge[] = [
@@ -45,7 +45,7 @@ export const LOTS: Lot[] = [
   { id: 'yard', x0: -45, z0: -62, x1: 205, z1: 62, limit: 20 },
   { id: 'midori', x0: 1040, z0: -470, x1: 1165, z1: -362, limit: 15 },
   { id: 'seiki', x0: 950, z0: 560, x1: 1080, z1: 660, limit: 15 },
-  { id: 'station', x0: 150, z0: 840, x1: 330, z1: 960, limit: 15 },
+  { id: 'station', x0: 150, z0: 840, x1: 296, z1: 960, limit: 15 },
 ];
 
 export const PLACES: Place[] = [

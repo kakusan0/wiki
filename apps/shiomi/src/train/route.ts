@@ -15,7 +15,8 @@ export interface Signal {
   /** 実物の信号機を、ほかの路線の信号機と共有している（その路線では描かない） */
   shared?: boolean;
 }
-export interface Crossing { s: number; }
+/** 踏切。road：踏切の道を線路の側で作るか（港町の踏切は、港町の道を使う） */
+export interface Crossing { s: number; road?: boolean; }
 export interface Whistle { s: number; }
 
 export interface Route {
@@ -84,7 +85,8 @@ export const SIGNALS: Signal[] = stationSignals(STATIONS);
 for (const s of [1100, 3000, 4900]) SIGNALS.push({ s, kind: 'block' });
 SIGNALS.sort((a, b) => a.s - b.s);
 
-export const CROSSINGS: Crossing[] = [{ s: 1000 }, { s: 2920 }];
+// s 600：潮見の港町の臨港道路の踏切（道はトラックの側で作る）
+export const CROSSINGS: Crossing[] = [{ s: 600, road: false }, { s: 1000 }, { s: 2920 }];
 export const TUNNEL = { from: 4330, to: 4720 };
 export const BRIDGE = { from: 3150, to: 3260, river: 3205 };
 export const WHISTLES: Whistle[] = [

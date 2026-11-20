@@ -1,7 +1,8 @@
 // 空（色の移り変わり・太陽の光の輪・雲）と、太陽の光
 import * as THREE from 'three';
 
-export function buildSky(scene: THREE.Scene) {
+/** 空と太陽。parent：空の球と太陽を入れる所（港町の中の座標で動かす） */
+export function buildSky(scene: THREE.Scene, parent: THREE.Object3D = scene) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
@@ -39,7 +40,7 @@ export function buildSky(scene: THREE.Scene) {
   });
   const dome = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), mat);
   dome.frustumCulled = false;
-  scene.add(dome);
+  parent.add(dome);
 
   const sun = new THREE.DirectionalLight(0xfff1de, 3.4);
   sun.castShadow = true;
@@ -47,10 +48,11 @@ export function buildSky(scene: THREE.Scene) {
   const sc = sun.shadow.camera;
   sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 400;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
-  scene.add(sun); scene.add(sun.target);
+  parent.add(sun); parent.add(sun.target);
   const hemi = new THREE.HemisphereLight(0xbfd6ff, 0x6a5e50, 0.35);
-  scene.add(hemi);
-  scene.fog = new THREE.Fog(0xb9cde2, 260, 1300);
+  parent.add(hemi);
+  // ひかり野線の山まで遠くが見えるよう、霧は距離とともにだんだん濃く
+  scene.fog = new THREE.FogExp2(0xb9cde2, 0.0004);
   const dir = mat.uniforms.sunDir.value as THREE.Vector3;
 
   return {

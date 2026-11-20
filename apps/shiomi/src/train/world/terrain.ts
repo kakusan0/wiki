@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { at, nearest, zoneAt, LENGTH, TUNNEL, BRIDGE, Zone, CITY } from '../route';
 import { tex } from './assets';
+import { portLand, portSea, PORT_Y } from '../../world/port';
 
 // ---- ノイズ ----
 function hash(x: number, y: number) {
@@ -88,6 +89,10 @@ export function ground(s: number, d: number, x: number, z: number, wz?: Record<Z
   // 都市部：線路から 440 m まで平らな町
   const cw = smooth(CITY.from - 120, CITY.from, s) * (1 - smooth(CITY.to, CITY.to + 120, s));
   if (cw > 0) { const k = cw * (1 - smooth(440, 540, ad)); h = h + (base - 0.85 + (n2 - 0.5) * 0.3 - h) * k; }
+  // 港町（トラックの世界）：路盤の高さで平らに。線路から 16 m より外は港町の地面の板の下に隠れるので、少し下げておく
+  const pl = portLand(x, z, d), ps = portSea(x, z);
+  if (pl > 0) h = h + (PORT_Y - 2.8 * smooth(17, 22, ad) - h) * pl;
+  if (ps > 0) h = h + (-8 - h) * ps;
   // 路盤（築堤・切土）
   const inTunnel = s > TUNNEL.from && s < TUNNEL.to;
   const onBridge = s > BRIDGE.from && s < BRIDGE.to;
@@ -101,9 +106,9 @@ export function ground(s: number, d: number, x: number, z: number, wz?: Record<Z
       if (ad < FORM_W + 1.6 && h >= f - 0.05) h -= 0.35 * Math.sin(((ad - FORM_W) / 1.6) * Math.PI); // 側溝
     }
   }
-  const dirt = Math.max(smooth(FORM_W + 1.8, FORM_W, ad), flatT * 0.25 * (1 - flatP));
-  const forest = w.forest * smooth(14, 30, ad) * (1 - sand);
-  const paddy = flatP * smooth(14, 20, ad) * (1 - smooth(200, 225, ad)) * (rd > 70 ? 1 : 0);
+  const dirt = Math.max(smooth(FORM_W + 1.8, FORM_W, ad), flatT * 0.25 * (1 - flatP), pl);
+  const forest = w.forest * smooth(14, 30, ad) * (1 - sand) * (1 - pl);
+  const paddy = flatP * smooth(14, 20, ad) * (1 - smooth(200, 225, ad)) * (rd > 70 ? 1 : 0) * (1 - pl);
   return { h, sand, dirt, forest, paddy };
 }
 

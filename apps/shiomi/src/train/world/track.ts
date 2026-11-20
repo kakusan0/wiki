@@ -267,7 +267,7 @@ export function buildTrack(group: THREE.Group, mats: Record<string, THREE.Materi
   // ---- トンネル ----
   const tunnelLights = buildTunnel(group, M, add);
   // ---- 踏切 ----
-  const crossings = CROSSINGS.map((c) => buildCrossing(group, M, c.s, add));
+  const crossings = CROSSINGS.map((c) => buildCrossing(group, M, c.s, add, c.road !== false));
 
   return { signals, crossings, tunnelLights, sleepers };
 }
@@ -419,29 +419,9 @@ function buildTunnel(group: THREE.Group, M: Record<string, THREE.Material>, add:
   return add(merge(ls), M.lamp, false, false);
 }
 
-function buildCrossing(group: THREE.Group, M: Record<string, THREE.Material>, s: number, add: AddFn): CrossingView {
+function buildCrossing(group: THREE.Group, M: Record<string, THREE.Material>, s: number, add: AddFn, withRoad = true): CrossingView {
   const y = at(s).y;
-  // 道路（線路に直角、地形に沿って）
-  const road = pbr('asphalt_02', { repeat: 1, color: 0x9a9a9a });
-  const pts: number[] = [];
-  const idx: number[] = [], uvs: number[] = [];
-  const ds: number[] = [];
-  for (let d = -140; d <= 140; d += 4) ds.push(d);
-  ds.forEach((d, k) => {
-    for (const w of [-3, 3]) {
-      const f = at(s + w, d);
-      const near = Math.abs(d + 2) < 8;
-      const h = near ? y - 0.02 : Math.max(groundH(s + w, d) + 0.08, Math.min(y - 0.02, groundH(s + w, d) + 0.08 + Math.max(0, 1 - (Math.abs(d + 2) - 8) / 30) * (y - groundH(s + w, d))));
-      pts.push(f.x, h, f.z); uvs.push(w / 3, d / 3);
-    }
-    if (k < ds.length - 1) { const a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
-  });
-  const rg = new THREE.BufferGeometry();
-  rg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  rg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  rg.setIndex(idx); rg.computeVertexNormals();
-  const rm = add(rg, road, false, true);
-  (rm.material as THREE.Material).side = THREE.DoubleSide;
+  if (withRoad) buildCrossingRoad(s, y, add);
   // 白線
   const arms: THREE.Object3D[] = [];
   const lights: THREE.MeshStandardMaterial[][] = [];
@@ -482,4 +462,28 @@ function buildCrossing(group: THREE.Group, M: Record<string, THREE.Material>, s:
 
 export function updateSignal(v: SignalView, aspect: 'G' | 'Y' | 'R') {
   for (const k of ['G', 'Y', 'R'] as const) v.lamps[k].emissiveIntensity = k === aspect ? 6 : 0;
+}
+
+/** 踏切の道（線路に直角、地形に沿って） */
+function buildCrossingRoad(s: number, y: number, add: AddFn) {
+  const road = pbr('asphalt_02', { repeat: 1, color: 0x9a9a9a });
+  const pts: number[] = [];
+  const idx: number[] = [], uvs: number[] = [];
+  const ds: number[] = [];
+  for (let d = -140; d <= 140; d += 4) ds.push(d);
+  ds.forEach((d, k) => {
+    for (const w of [-3, 3]) {
+      const f = at(s + w, d);
+      const near = Math.abs(d + 2) < 8;
+      const h = near ? y - 0.02 : Math.max(groundH(s + w, d) + 0.08, Math.min(y - 0.02, groundH(s + w, d) + 0.08 + Math.max(0, 1 - (Math.abs(d + 2) - 8) / 30) * (y - groundH(s + w, d))));
+      pts.push(f.x, h, f.z); uvs.push(w / 3, d / 3);
+    }
+    if (k < ds.length - 1) { const a = k * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  });
+  const rg = new THREE.BufferGeometry();
+  rg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  rg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  rg.setIndex(idx); rg.computeVertexNormals();
+  const rm = add(rg, road, false, true);
+  (rm.material as THREE.Material).side = THREE.DoubleSide;
 }

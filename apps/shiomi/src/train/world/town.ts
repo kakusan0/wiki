@@ -3,6 +3,7 @@
 // 束（600 m）ごとに材質別へまとめるので、描画の回数は少ない。
 import * as THREE from 'three';
 import { at, LENGTH, STATIONS, CROSSINGS, zoneAt, CITY } from '../route';
+import { inPort } from '../../world/port';
 import { AOBA_TRACK, SAZA_TRACK } from '../net/network';
 import { ground, zoneW, C, FORM_W } from './terrain';
 import { pbr } from './assets';
@@ -210,6 +211,7 @@ export function buildTown(group: THREE.Group): void {
         const ad = ad0 + dep / 2 + r() * 2;
         const d = C + side * ad;
         const f = at(sc, d);
+        if (inPort(f.x, f.z, d)) continue; // 港町（トラックの世界）の中
         // ほかの線路（あおば線・さざなみ線の高架）の上には建てない
         const rad = Math.hypot(w, dep) / 2;
         if (AOBA_TRACK.nearest(f.x, f.z, 8).dist < rad + 9 || SAZA_TRACK.nearest(f.x, f.z, 8).dist < rad + 10) continue;
@@ -259,7 +261,8 @@ export function buildTown(group: THREE.Group): void {
     }
   }
 
-  buildStreets(group, isTown, crossingNear);
+  // 線路の右の道は、港町の中では作らない（港町の道がある）
+  buildStreets(group, (s) => { if (!isTown(s)) return false; const f = at(s, C - 13); return !inPort(f.x, f.z, C - 13); }, crossingNear);
 }
 
 /** 道路・電柱と電線・線路ぎわの金網 */
