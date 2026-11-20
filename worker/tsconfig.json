@@ -5,5 +5,5 @@
     "lib": ["ES2022"], "types": ["@cloudflare/workers-types", "node"],
     "strict": true, "noEmit": true, "skipLibCheck": true, "allowImportingTsExtensions": true
   },
-  "include": ["prefix.ts", "prefix.test.ts"]
+  "include": ["prefix.ts", "prefix.test.ts", "moved.ts"]
 }

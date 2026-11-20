@@ -63,7 +63,7 @@ function index() {
 <main class="wrap">${groups}
   <section aria-labelledby="h-link" class="links-note">
     <h2 id="h-link">作品どうしのつながり</h2>
-    <p><a href="./train-sim/">ひかり野線 運転士</a>の貨物列車と、<a href="./truck/">潮見港コンテナ便</a>のトラックは、同じ潮見の町の荷物でつながっています。トラックで潮見貨物駅に運んだコンテナを貨物列車が山ノ口へ運び、帰りの列車が持ち帰った荷物がトラックの依頼になります。</p>
+    <p><a href="./shiomi/">潮見とひかり野線</a>では、電車とトラックが同じ潮見の町の荷物でつながっています。トラックで潮見貨物駅に運んだコンテナを貨物列車が山ノ口へ運び、帰りの列車が持ち帰った荷物がトラックの依頼になります。</p>
   </section>
 </main>
 ${footer()}`;

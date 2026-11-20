@@ -5,8 +5,7 @@ kakusan0 の作品（ゲームと道具）を 1 つにまとめたリポジト�
 | パス | 作品 | コード |
 |---|---|---|
 | `/wiki/` | 作品の一覧と、作品ごとのページ | `site/` |
-| `/train-sim/` | ひかり野線 運転士 | `apps/train-sim/` |
-| `/truck/` | 潮見港コンテナ便 | `apps/truck/` |
+| `/shiomi/` | 潮見とひかり野線（電車とトラック） | `apps/shiomi/` |
 | `/shogi/` | まちかど将棋 | `apps/shogi/` |
 | `/hanafuda/` | 電光花札 こいこい | `apps/hanafuda/` |
 | `/machikado-board/` | まちかど商店街ボード | `apps/machikado-board/` |
@@ -14,7 +13,7 @@ kakusan0 の作品（ゲームと道具）を 1 つにまとめたリポジト�
 | `/netspeed/` | 回線速度の記録 | `apps/netspeed/` |
 | `/qr-order/` | QR オーダー | `apps/qr-order/` |
 
-`/` を開くと `/wiki/` へ移ります。作品の履歴は、それぞれの元のリポジトリに残っています。
+`/` を開くと `/wiki/` へ移ります。前の `/train-sim/` と `/truck/` は `/shiomi/` へ移ります（`worker/moved.ts`）。作品の履歴は、それぞれの元のリポジトリに残っています。
 
 ## しくみ
 
@@ -55,7 +54,7 @@ npm run build
 1 つの作品だけを動かすときは、その作品のフォルダーで `npm run dev` を使います。
 
 ```bash
-npm run dev -w apps/truck
+npm run dev -w apps/shiomi
 ```
 
 ## 作品を足す・直す
@@ -86,7 +85,7 @@ netspeed のシークレットは、元の名前に `NETSPEED_` を付けてい�
 ### D1
 
 - `NETSPEED_DB`・`QR_DB`：元の Worker と同じデータベースです。記録はそのまま残ります。
-- `TRUCK_DB`：truck と train-sim の荷物の記録です。D1 を作ったら `wrangler.jsonc` に足します。ない間は、端末の中だけの「仮のコンテナ」で動きます。
+- `TRUCK_DB`：潮見とひかり野線の荷物の記録です。D1 を作ったら `wrangler.jsonc` に足します。ない間は、端末の中だけの「仮のコンテナ」で動きます。
 
 ### CI
 

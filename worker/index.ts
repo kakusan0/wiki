@@ -1,11 +1,12 @@
 // サイトの入口の Worker：/<作品>/… を見て、作品の Worker（または画面のファイル）に渡す。
 // 作品のサーバーのコードは、それぞれのリポジトリにあった形のまま使う（頭の /<作品> を外して渡す）。
 import { strip, fixResponse, scopedAssets, type Fetcher } from './prefix';
+import { movedTo } from './moved';
 import shogi, { RoomDO as ShogiRoom } from '../apps/shogi/src/worker/index';
 import hanafuda, { RoomDO as HanafudaRoom } from '../apps/hanafuda/src/worker/index';
 import board, { RoomDO as BoardRoom, MatchmakerDO as BoardMatchmaker } from '../apps/machikado-board/src/worker/index';
 import netspeed from '../apps/netspeed/src/worker/index';
-import truck from '../apps/truck/src/worker/index';
+import shiomi from '../apps/shiomi/src/worker/index';
 import qrOrder from '../apps/qr-order/src/index';
 
 // Durable Objects：3 作品とも RoomDO という名前なので、作品ごとの名前で出す
@@ -27,9 +28,9 @@ interface App {
 
 const APPS: Record<string, App> = {
   wiki: { spa: false },
-  'train-sim': { spa: true },
   'medal-pusher': { spa: true },
-  truck: { worker: truck as Handler, spa: true, env: (e) => ({ DB: e.TRUCK_DB }) },
+  // 潮見とひかり野線（トラックと電車）。/api/* は荷物の記録置き場
+  shiomi: { worker: shiomi as Handler, spa: true, env: (e) => ({ DB: e.TRUCK_DB }) },
   shogi: { worker: shogi as Handler, spa: true, env: (e) => ({ ROOM: e.SHOGI_ROOM, API_LIMIT: e.SHOGI_LIMIT }) },
   hanafuda: { worker: hanafuda as Handler, spa: true, env: (e) => ({ ROOM: e.HANAFUDA_ROOM, API_LIMIT: e.HANAFUDA_LIMIT }) },
   'machikado-board': { worker: board as Handler, spa: true, env: (e) => ({ ROOM: e.BOARD_ROOM, MATCHMAKER: e.BOARD_MATCH, API_LIMIT: e.BOARD_LIMIT, FAST: e.BOARD_FAST, MAX_ROUNDS: e.BOARD_MAX_ROUNDS }) },
@@ -45,6 +46,7 @@ const APPS: Record<string, App> = {
 };
 export const APP_IDS = Object.keys(APPS);
 
+
 /** 作品ごとの env：作品の名前に付け替えたものと、作品のフォルダーだけを見る ASSETS */
 function appEnv(id: string, env: AnyEnv): Record<string, unknown> {
   const app = APPS[id];
@@ -56,10 +58,12 @@ export default {
     const url = new URL(req.url);
     const seg = url.pathname.split('/')[1] ?? '';
     if (url.pathname === '/' || url.pathname === '') return Response.redirect(new URL('/wiki/', url).toString(), 302);
+    const moved = movedTo(url);
+    if (moved) return Response.redirect(moved, 301);
     const app = APPS[seg];
     if (!app) return env.ASSETS.fetch(req); // 404 のページなど
     const base = `/${seg}`;
-    // /truck → /truck/（作品の中の相対のパスが正しく効くように）
+    // /shiomi → /shiomi/（作品の中の相対のパスが正しく効くように）
     if (url.pathname === base) { url.pathname = `${base}/`; return Response.redirect(url.toString(), 301); }
     const e = appEnv(seg, env);
     const read = req.method === 'GET' || req.method === 'HEAD';

@@ -1,0 +1,29 @@
+/* はじめの画面（乗り物を選ぶ）と、そこへ戻るリンク。乗り物ごとの見た目は train/style.css・truck/style.css */
+#menu {
+  --bg: #0e1218; --ink: #eef1f4; --sub: #a9b3bd; --train: #1f6fb4; --truck: #e8692a;
+  position: fixed; inset: 0; overflow: auto; background: var(--bg); color: var(--ink);
+  font-family: 'Zen Kaku Gothic New', system-ui, sans-serif;
+  display: grid; place-content: center; gap: 14px;
+  padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+}
+#menu[hidden] { display: none; }
+#menu h1 { margin: 0; font-size: clamp(24px, 5vw, 40px); font-weight: 900; letter-spacing: .04em; }
+#menu .lead { margin: 0; color: var(--sub); line-height: 1.6; max-width: 40em; }
+#menu .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 6px; }
+#menu .mode {
+  display: grid; gap: 6px; padding: 18px 20px; border-radius: 14px; text-decoration: none; color: var(--ink);
+  background: color-mix(in srgb, var(--c) 22%, #161c25); border: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
+}
+#menu .mode:active, #menu .mode:hover { background: color-mix(in srgb, var(--c) 38%, #161c25); }
+#menu .mode b { font-size: 22px; font-weight: 900; }
+#menu .mode span { color: var(--sub); font-size: 14px; }
+#menu .train { --c: var(--train); }
+#menu .truck { --c: var(--truck); }
+html, body { margin: 0; background: #0e1218; }
+.to-menu {
+  position: fixed; z-index: 50; left: max(10px, env(safe-area-inset-left)); bottom: 8px;
+  padding: 4px 10px; border-radius: 999px; background: rgba(14, 18, 24, .7); color: #eef1f4;
+  font: 600 12px 'Zen Kaku Gothic New', system-ui, sans-serif; text-decoration: none;
+}
+/* 走っている間は戻るリンクを隠す（はじめの画面が出ている時だけ出す） */
+body:has(#hud:not([hidden])) .to-menu { display: none; }

@@ -64,3 +64,12 @@ test('作品のフォルダーだけを見る。見つからない画面は作�
   assert.equal((await scopedAssets(a, '/shogi', false).fetch(new Request('https://x.dev/game/1', { headers: { Accept: 'text/html' } }))).status, 404);
   assert.ok(a.seen.every((p) => p.startsWith('/shogi/')));
 });
+
+test('まとめた作品の前のパスは、いまのパスへ移す', async () => {
+  const { movedTo } = await import('./moved.ts');
+  assert.equal(movedTo(new URL('https://x.dev/truck/?auto&job=toStation')), 'https://x.dev/shiomi/?auto=&job=toStation&mode=truck');
+  assert.equal(movedTo(new URL('https://x.dev/train-sim/')), 'https://x.dev/shiomi/?mode=train');
+  assert.equal(movedTo(new URL('https://x.dev/wiki/truck/')), 'https://x.dev/wiki/shiomi/');
+  assert.equal(movedTo(new URL('https://x.dev/shiomi/')), null);
+  assert.equal(movedTo(new URL('https://x.dev/wiki/shogi/')), null);
+});
