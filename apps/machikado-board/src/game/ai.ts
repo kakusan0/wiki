@@ -1,8 +1,8 @@
 // CPU の判断。状態を見て次の操作を 1 つ返す（状態は変えない）
-import { forwardOptions, getMap } from './maps';
+import { forwardOptions, getMap, landingAfter } from './maps';
 import { hash01 } from './rng';
 import {
-  BUYOUT_MULT, MAX_SHARES, STOCK_LOT, buyQuote, fee, isMonopoly, ownedInStreet, stockPrice, streetSquares,
+  BUYOUT_MULT, MAX_SHARES, STOCK_LOT, buyQuote, fee, isMonopoly, netWorth, ownedInStreet, stockPrice, streetSquares,
 } from './rules';
 import type { Action, CpuLevel, GameState } from './state';
 import { bidPrice, canBuyStock, investOptions } from './turn';
@@ -18,7 +18,9 @@ interface Style {
 const STYLES: Record<CpuLevel, Style> = {
   easy: { reserve: 0.05, investShare: 0.25, buyoutMin: 0, stockShare: 0.1, noise: 0.6 },
   normal: { reserve: 0.15, investShare: 0.45, buyoutMin: 0.95, stockShare: 0.15, noise: 0.3 },
-  hard: { reserve: 0.12, investShare: 0.85, buyoutMin: 0.6, stockShare: 0.35, noise: 0 },
+  // つよい：手元に残すお金は少なく（ただし次の番の利用料は払えるだけ残す）、余ったお金の多くを株へ。買収はしない
+  // （前のつよいと 600 試合ずつ戦わせて、勝ちが増えた組み合わせ）
+  hard: { reserve: 0.05, investShare: 0.85, buyoutMin: 0, stockShare: 0.85, noise: 0 },
 };
 
 export function decide(s: GameState): Action {
@@ -28,7 +30,10 @@ export function decide(s: GameState): Action {
   const st = STYLES[level];
   const map = getMap(s.mapId);
   const r = (k: number) => hash01(s.rng, s.round, s.turn, s.log.length, k);
-  const reserve = map.startCash * st.reserve;
+  const base = map.startCash * st.reserve;
+  // つよい：次の番に止まるかもしれない相手のお店の、いちばん高い利用料も払えるように残す
+  const reserve = level === 'hard' ? Math.max(base, danger(s, p.id)) : base;
+  const lead = level === 'hard' ? leader(s, p.id) : null;
 
   if (s.phase === 'roll') return { type: 'roll' };
 
@@ -61,8 +66,14 @@ export function decide(s: GameState): Action {
         // つよい：お店は資産で利用料も入るので、払えるなら買う。相手の独占を防ぐときは手持ちぎりぎりでも買う
         if (level === 'hard') {
           const street = map.squares[sq].street!;
-          const blocks = s.players.some((o) => o.id !== p.id && ownedInStreet(s, street, o.id) >= streetSquares(s, street).length - 1);
-          return p.cash - price >= (blocks ? 0 : reserve * 0.5) ? { type: 'buyShop' } : { type: 'skip' };
+          const total = streetSquares(s, street).length;
+          // 相手があと 1 軒で独占：止める。トップの人なら、あと 2 軒からでも止める
+          const blocks = s.players.some((o) => o.id !== p.id && !o.bankrupt && ownedInStreet(s, street, o.id) >= total - 1)
+            || (lead != null && ownedInStreet(s, street, lead) >= Math.max(1, total - 2));
+          // 自分の通りを増やすお店は、少し無理をしても買う
+          const mine = ownedInStreet(s, street, p.id) >= 1;
+          const keep = blocks ? 0 : mine ? Math.min(base * 0.5, reserve * 0.5) : reserve * 0.6;
+          return p.cash - price >= keep ? { type: 'buyShop' } : { type: 'skip' };
         }
         const want = p.cash - price >= reserve || (level !== 'easy' && p.cash - price >= 0 && r(1) < 0.5);
         return want && r(2) > st.noise * 0.3 ? { type: 'buyShop' } : { type: 'skip' };
@@ -146,11 +157,12 @@ function decideBid(s: GameState): Action {
   const value = s.props[au.sq]!.value;
   let mult = level === 'easy' ? 0.8 : level === 'normal' ? 1.0 : 1.2;
   if (level === 'hard' && q.kind === 'shop') {
+    const total = streetSquares(s, q.street!).length;
     const mine = ownedInStreet(s, q.street!, p.id);
     if (mine >= 1) mult = 1.5;
-    if (mine === streetSquares(s, q.street!).length - 1) mult = 2; // 落札すれば独占
+    if (mine === total - 1) mult = 2; // 落札すれば独占
   }
-  const reserve = map.startCash * STYLES[level].reserve;
+  const reserve = level === 'hard' ? Math.max(map.startCash * STYLES[level].reserve, danger(s, p.id) * 0.5) : map.startCash * STYLES[level].reserve;
   const limit = Math.min(value * mult, p.cash - reserve);
   return bidPrice(s, 10) <= limit ? { type: 'bid', raise: 10 } : { type: 'pass' };
 }
@@ -185,4 +197,31 @@ function routeScores(s: GameState, pos: number, prev: number, left: number, stam
 // 通りの稼ぐ力のめやす（利用料の合計）
 function streetHeat(s: GameState, street: number) {
   return streetSquares(s, street).reduce((a, sq) => a + fee(s, sq), 0);
+}
+
+// ---- つよい の考えに使う道具 ----
+
+/** 次の番（サイコロ 1〜6）で止まるかもしれない相手のお店・施設の、いちばん高い利用料 */
+export function danger(s: GameState, pid: number): number {
+  const map = getMap(s.mapId);
+  const p = s.players[pid];
+  let worst = 0;
+  for (let n = 1; n <= 6; n++) {
+    for (const sq of landingAfter(map, p.pos, p.prev, n)) {
+      const owner = s.props[sq]?.owner;
+      if (owner != null && owner !== pid) worst = Math.max(worst, fee(s, sq));
+    }
+  }
+  return worst;
+}
+
+/** 自分以外で、資産がいちばん多い人 */
+export function leader(s: GameState, pid: number): number | null {
+  let best: number | null = null, top = -Infinity;
+  for (const o of s.players) {
+    if (o.id === pid || o.bankrupt) continue;
+    const w = netWorth(s, o.id);
+    if (w > top) { top = w; best = o.id; }
+  }
+  return best;
 }
