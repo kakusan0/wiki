@@ -33,6 +33,15 @@ describe('トラックに乗っている間の鉄道', () => {
     if (!r.debug().oncoming.some((s) => s < 1100)) expect(r.crossingActive(i)).toBe(false);
   });
 
+  it('潮見台で発車を待つ間は、港町の踏切は鳴らない', () => {
+    const { track, lines } = fakeWorld();
+    const r = new Railway(new THREE.Group(), track, lines, () => {}, T(7, 0, 0), noShape);
+    const i = CROSSINGS.findIndex((c) => c.s === 600);
+    r.update(0.1);
+    expect(r.debug().ais.find((a) => a.id.startsWith('ai-hikari'))!.v).toBe(0);
+    expect(r.crossingActive(i)).toBe(false);
+  });
+
   it('走り終えた列車は、しばらくしてまた走り出す。下りの列車も出てくる', () => {
     const { track, lines } = fakeWorld();
     const r = new Railway(new THREE.Group(), track, lines, () => {}, T(7, 0, 0), noShape);

@@ -110,12 +110,13 @@ export class Railway {
   }
 
   /** ひかり野線の線路の上にいる上りの列車の、先頭の位置 */
-  private mainTrains(): number[] {
-    const out: number[] = [];
+  private mainTrains(): { s: number; halt: boolean }[] {
+    const out: { s: number; halt: boolean }[] = [];
     for (const a of this.ais) {
       if (!a.view.group.visible || a.sim.finished && a.doneT > 25) continue;
-      if (a.route === HIKARI) out.push(a.sim.s);
-      else if (a.route === AOBA) { const m = aobaToMain(a.sim.s); if (m !== null) out.push(m); }
+      const halt = a.sim.at >= 0; // 駅に止まっている
+      if (a.route === HIKARI) out.push({ s: a.sim.s, halt });
+      else if (a.route === AOBA) { const m = aobaToMain(a.sim.s); if (m !== null) out.push({ s: m, halt }); }
     }
     return out;
   }
@@ -128,14 +129,15 @@ export class Railway {
   /** i 番目の踏切が鳴っているか（列車が近い） */
   crossingActive(i: number): boolean {
     const s = CROSSINGS[i].s;
-    return this.mainTrains().some((m) => m > s - 420 && m - TRAIN_LEN < s + 4)
+    // 駅に止まっている列車は、踏切のすぐ手前（60 m 以内）のときだけ鳴らす（潮見台で発車を待つ間は鳴らさない）
+    return this.mainTrains().some((m) => m.s > s - (m.halt ? 60 : 420) && m.s - TRAIN_LEN < s + 4)
       || this.oncoming.some((o) => o.s < s + 420 && o.s + TRAIN_LEN > s - 4);
   }
 
   /** i 番目の踏切の上に、いま列車がいるか */
   onCrossing(i: number): boolean {
     const s = CROSSINGS[i].s;
-    return this.mainTrains().some((m) => m > s - 4 && m - TRAIN_LEN < s + 4)
+    return this.mainTrains().some((m) => m.s > s - 4 && m.s - TRAIN_LEN < s + 4)
       || this.oncoming.some((o) => o.s < s + 4 && o.s + TRAIN_LEN > s - 4);
   }
 }
