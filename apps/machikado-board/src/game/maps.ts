@@ -1,6 +1,6 @@
 import type { GameMap, Square, Street } from './state';
 
-// 盤の並びを短い記号で書く。B=銀行 P=広場 C=チャンス L=空き地 a〜d=スタンプ 0〜9=通り番号の店
+// 盤の並びを短い記号で書く。B=銀行 P=広場 C=チャンス L=空き地 a〜d=スタンプ S=切り替わりスタンプ 0〜9=通り番号の店
 const SHOP_NAMES = [
   ['パン工房', '八百屋', '喫茶こもれび', '豆腐店'],
   ['魚市場', '船具店', '潮風食堂', '干物屋'],
@@ -26,7 +26,7 @@ export const MAX_SHOPS_PER_STREET = 4;
 const DIRS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 // 盤を格子の絵で書く。1 文字が 1 マスで、上下左右にとなり合うマスどうしがつながる。
-// B=銀行 P=広場 C=チャンス L=空き地 a〜d=スタンプ 0〜9=通り番号の店 「.」と空白=何もない
+// B=銀行 P=広場 C=チャンス L=空き地 a〜d=スタンプ S=切り替わりスタンプ 0〜9=通り番号の店 「.」と空白=何もない
 export function parseMap(id: string, name: string, target: number, startCash: number,
   rows: string[], streetBase: number[]): { map: GameMap; errors: string[] } {
   const errors: string[] = [];
@@ -46,6 +46,7 @@ export function parseMap(id: string, name: string, target: number, startCash: nu
     else if (t === 'P') sq = { ...base, kind: 'plaza', name: '広場' };
     else if (t === 'C') sq = { ...base, kind: 'chance', name: `チャンス${++chance}` };
     else if (t === 'L') sq = { ...base, kind: 'lot', name: '空き地', base: 200 };
+    else if (t === 'S') sq = { ...base, kind: 'stamp', name: '切り替わりスタンプ', stamp: 0, rotating: true };
     else if ('abcd'.includes(t)) {
       const s = 'abcd'.indexOf(t);
       sq = { ...base, kind: 'stamp', name: `${['パン', '花', '本', '鍵'][s]}のスタンプ`, stamp: s };
@@ -112,9 +113,13 @@ export function validateMap(m: GameMap): string[] {
 
   // スタンプ：4 種が 1 つずつ
   for (let s = 0; s < 4; s++) {
-    const n = sq.filter((q) => q.kind === 'stamp' && q.stamp === s).length;
+    const n = sq.filter((q) => q.kind === 'stamp' && !q.rotating && q.stamp === s).length;
     if (n !== 1) e.push(`${['パン', '花', '本', '鍵'][s]}のスタンプは 1 つ必要です（${n}）`);
   }
+
+  // 切り替わりスタンプは 2 つまで
+  const rot = sq.filter((q) => q.rotating).length;
+  if (rot > 2) e.push(`切り替わりスタンプは 2 つまでです（${rot}）`);
 
   // 通り
   if (m.streets.length < 2) e.push('通りは 2 本以上必要です');
@@ -177,7 +182,7 @@ export const MAPS: GameMap[] = [
     'B00a011',
     'C..2..1',
     '4..2..b',
-    '4..P..1',
+    '4..S..1',
     'c..2..3',
     'P..C..3',
     '44dLC33',
@@ -185,7 +190,7 @@ export const MAPS: GameMap[] = [
   // 「日」の字の形。まん中の縦の道で、左と右の輪のどちらを回るか選ぶ
   build('harbor', 'みなとの商店街', 5000, 1500, [
     'B00a0C111',
-    '2...L...1',
+    '2...S...1',
     'P...3...b',
     '2...3...C',
     '22c3P4d44',
@@ -195,7 +200,7 @@ export const MAPS: GameMap[] = [
     'B00a11C...',
     'C..5..1...',
     '0..5..1b22',
-    '0..L.....2',
+    '0..S.....2',
     'd..5.....L',
     '4..5.....2',
     'L44C33c33P',
@@ -204,7 +209,7 @@ export const MAPS: GameMap[] = [
   build('cross', '十字路の街', 4200, 1500, [
     'B00a11C',
     '2..0..1',
-    '2..L..1',
+    '2..S..1',
     'd33C44b',
     '2..P..5',
     'C..4..5',
@@ -214,7 +219,7 @@ export const MAPS: GameMap[] = [
   build('twin', 'ふたつの広場', 3500, 1600, [
     'B00a0...C11b1',
     '2...0...1...3',
-    'P...L5C54...3',
+    'P...L5S54...3',
     '2...5...4...3',
     '22cC5...4d4P3',
   ], [110, 140, 170, 200, 230, 260]),
@@ -223,7 +228,7 @@ export const MAPS: GameMap[] = [
     'B00a0C11L11C',
     'C...0...3..b',
     '5...P...3..4',
-    'd...2...C..4',
+    'd...2...S..4',
     '5...2...3..P',
     'L552c2P3L44C',
   ], [120, 150, 190, 230, 270, 320]),

@@ -9,7 +9,8 @@ export interface Square {
   name: string;
   street?: number; // shop のとき
   base?: number; // shop / lot の基本価格
-  stamp?: number; // 0..3（パン・花・本・鍵）
+  stamp?: number; // 0..3（パン・花・本・鍵）。切り替わりのマスは、はじめの種類
+  rotating?: boolean; // 切り替わりスタンプ：通るたびに種類が変わる（いまの種類は GameState.rotating）
   x: number; // 盤の上の位置（左上が 0,0）
   y: number;
 }
@@ -104,6 +105,8 @@ export interface GameState {
   salary: { player: number; amount: number; level: number } | null;
   auction: Auction | null;
   monopoly: { player: number; street: number } | null; // この番に通りを独占した人と通り（画面の表示用） // この番にもらった給料（画面の表示用）
+  /** 切り替わりスタンプのいまの種類（マスの番号 → 0..3）。前の保存にはないので、ないときははじめの種類 */
+  rotating?: Record<number, number>;
   log: LogEntry[];
   winner: number | null;
   overReason: 'target' | 'bankrupt' | 'rounds' | null;

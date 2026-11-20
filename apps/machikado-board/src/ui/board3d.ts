@@ -2,7 +2,8 @@
 import { CARDS } from '../game/cards';
 import { getMap, stopsVia } from '../game/maps';
 import type { GameMap } from '../game/state';
-import { fee, isMonopoly, netWorth } from '../game/rules';
+import { fee, isMonopoly, netWorth, stampAt } from '../game/rules';
+import { STAMP_NAMES } from '../game/state';
 import type { GameState } from '../game/state';
 import type { BoardView } from './board2d';
 import { g as gold, h } from './dom';
@@ -266,10 +267,13 @@ export function createBoard3D(initial: Detail): Board3D | null {
         add(M.cube, [dx, 0.68, dz], [0.6, 0.05, 0.13], { c: C('#F3F0E6'), r: rot });
         add(M.prism, [dx, 0.73, dz], [0.6, 0.12, 0.13], { c: C('#F3F0E6'), r: rot });
       } else if (sq.kind === 'stamp') {
-        const col = ['#F4C27A', '#F5A3C0', '#9EC5F0', '#F2D16B'][sq.stamp!];
+        const k = stampAt(s, sq.id); // 切り替わりのマスは、いまの種類
+        const col = ['#F4C27A', '#F5A3C0', '#9EC5F0', '#F2D16B'][k];
         plate(col);
-        add(M.cyl, [x, 0.06, z], [0.42, 0.1, 0.42], { tex: tx.stone, c: C('#EEF0F4'), shadow: 0.4 });
-        add(M.rbox, [x, 0.2, z], [0.34, 0.34, 0.34], { tex: r.tex(`stamp:${sq.stamp}`, () => T.stamp(sq.stamp!), false), spin: sq.id });
+        add(M.cyl, [x, 0.06, z], [0.42, 0.1, 0.42], { tex: tx.stone, c: C(sq.rotating ? '#D9DEE8' : '#EEF0F4'), shadow: 0.4 });
+        // 切り替わりのマスは、台を 2 段にして見分けられるようにする
+        if (sq.rotating) add(M.cyl, [x, 0.16, z], [0.3, 0.06, 0.3], { c: C('#9AA4B8') });
+        add(M.rbox, [x, sq.rotating ? 0.3 : 0.2, z], [0.34, 0.34, 0.34], { tex: r.tex(`stamp:${k}`, () => T.stamp(k), false), spin: sq.id });
       } else if (sq.kind === 'chance' || (sq.kind === 'lot' && s.mode === 'easy')) {
         plate('#F6E3A0');
         add(M.rbox, [x, 0.14, z], [0.38, 0.38, 0.38], { tex: tx.chance, spin: sq.id, shadow: 0.5 });
@@ -305,7 +309,7 @@ export function createBoard3D(initial: Detail): Board3D | null {
   }
 
   function sig(s: GameState) {
-    return JSON.stringify([s.mapId, s.mode, detail, fontsReady, s.props.map((p) => p && [p.owner, p.value, p.facility ?? '']),
+    return JSON.stringify([s.mapId, s.mode, detail, fontsReady, s.rotating ?? null, s.props.map((p) => p && [p.owner, p.value, p.facility ?? '']),
       s.players.map((p) => [p.color, p.closed])]);
   }
 
@@ -725,7 +729,11 @@ function choiceText(s: GameState, sq: number): [string, string] {
       if (owner.id === s.turn) return [q.name, '自分のお店（増資できる）'];
       return [q.name, `${owner.name}のお店・利用料 ${fee(s, sq).toLocaleString()}G`];
     case 'bank': return ['銀行', 'スタンプがそろえば給料・株を買える'];
-    case 'stamp': return [q.name, s.players[s.turn].stamps[q.stamp!] ? 'もう持っている' : 'まだ持っていないスタンプ'];
+    case 'stamp': {
+      const k = stampAt(s, sq);
+      const have = s.players[s.turn].stamps[k] ? 'もう持っている' : 'まだ持っていない';
+      return q.rotating ? [q.name, `通るたびに種類が変わる。いまは${STAMP_NAMES[k]}（${have}）`] : [q.name, `${have}スタンプ`];
+    }
     case 'chance': return ['チャンス', 'カードを引く'];
     case 'plaza': return ['広場', '止まると自分のお店がお休み'];
     case 'lot':

@@ -231,6 +231,8 @@ legend { font-weight: 900; margin-bottom: 6px; }
 @media (prefers-reduced-motion: reduce) { .sq.blink { animation: none; box-shadow: 0 0 0 4px #F2C230; } }
 @media (max-width: 600px) {
   .stocks.wide th:nth-child(3), .stocks.wide td:nth-child(3), .stocks.wide th:nth-child(4), .stocks.wide td:nth-child(4) { display: none; }
+  /* お店の数も隠して、売り買いのボタンが画面の右にはみ出さないように */
+  .stocks.wide th:nth-child(6), .stocks.wide td:nth-child(6) { display: none; }
   .stocks.wide .grid2 .btn:nth-child(n+3) { display: none; }
   .stocks.wide .grid2 .btn { min-width: 0; }
   .tabs { padding: 0 12px; }
@@ -344,3 +346,21 @@ legend { font-weight: 900; margin-bottom: 6px; }
 .sq .auction-tag { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #C8402F; color: #fff; font-size: 11px; font-weight: 900; padding: 3px 7px; border-radius: 99px; white-space: nowrap; z-index: 3; }
 .street-info td small.cap { display: block; font-size: 11px; color: var(--sub, #6b6b80); font-weight: 400; }
 .board3d .reset-view { position: absolute; left: 10px; bottom: 10px; min-height: 40px; padding: 0 14px; border-radius: 99px; border: 1px solid rgba(27,35,64,.25); background: rgba(255,255,255,.9); color: #1B2340; font-weight: 700; font-size: 13px; cursor: pointer; }
+
+/* 株の持ち主の帯（色はプレイヤー。長さは全員の持ち株の合計に対する割合） */
+.stocks .holders { display: flex; height: 8px; margin-top: 5px; border-radius: 99px; overflow: hidden; background: var(--soft); width: 100%; max-width: 220px; }
+.stocks .holders i { display: block; height: 100%; }
+.stocks .holders i + i { box-shadow: inset 1px 0 0 var(--panel); }
+.stocks .holders i.mine { box-shadow: inset 0 0 0 2px var(--ink); }
+.stocks .holders.none { height: auto; background: none; }
+.stocks .holders.none small { color: var(--sub); font-size: 11px; }
+/* 開いた行：人ごとの株数 */
+.stocks tr.holders-detail td { background: var(--soft); padding: 6px 8px 10px; }
+.stocks tr.holders-detail ul { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.stocks tr.holders-detail li { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.stocks tr.holders-detail li.zero { color: var(--sub); }
+.stocks tr.holders-detail .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.stocks tr.holders-detail .pct { color: var(--sub); }
+.stocks tr.holders-detail .badge { font-size: 11px; background: var(--gold); color: #1B2340; border-radius: 99px; padding: 1px 7px; font-weight: 700; }
+.stocks tr.holders-detail .btn.small { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.stocks tr[aria-expanded="true"] td { border-bottom-color: transparent; }

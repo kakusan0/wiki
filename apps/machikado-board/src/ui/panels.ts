@@ -273,6 +273,35 @@ export function renderStreetInfo(s: GameState, act: Act, busy: boolean, mySeat: 
     h('p', { class: 'note' }, '増資の余地：持ち主があと増資できる金額（上限 − いまの価値）。増資されると、その通りの株価が上がります。'));
 }
 
+// 株式市場で、人ごとの持ち株を開いている通り（作り直しても開いたまま）
+const openStreets = new Set<number>();
+
+/** 通りの持ち株を、持っている人の色で分けた帯。長さは全員の持ち株の合計に対する割合 */
+function holdersBar(s: GameState, street: number, mySeat: number): HTMLElement {
+  const held = s.players.filter((p) => p.shares[street] > 0);
+  const total = held.reduce((a, p) => a + p.shares[street], 0);
+  const label = total ? held.map((p) => `${p.name} ${p.shares[street]}株`).join('・') : 'まだ誰も持っていない';
+  return h('div', { class: `holders${total ? '' : ' none'}`, role: 'img', 'aria-label': `持ち株：${label}`, title: label },
+    total ? held.map((p) => h('i', {
+      class: p.id === mySeat ? 'mine' : '',
+      style: { width: `${(p.shares[street] / total) * 100}%`, background: p.color },
+    })) : h('small', {}, '株主なし'));
+}
+
+/** 開いた行：人ごとの株数・割合・筆頭の印 */
+function holdersDetail(s: GameState, street: number, mySeat: number, cols: number, onPick?: () => void): HTMLElement {
+  const total = s.players.reduce((a, p) => a + p.shares[street], 0);
+  const top = topHolder(s, street);
+  return h('tr', { class: 'holders-detail' }, h('td', { colspan: String(cols) },
+    h('ul', {}, s.players.map((p) => h('li', { class: p.shares[street] ? '' : 'zero' },
+      h('span', { class: 'dot', style: { background: p.color } }),
+      h('b', {}, p.id === mySeat ? `${p.name}（あなた）` : p.name),
+      h('span', { class: 'num' }, `${p.shares[street]} 株`),
+      h('span', { class: 'num pct' }, total ? `${Math.round((p.shares[street] / total) * 100)}%` : '―'),
+      top === p.id ? h('span', { class: 'badge' }, '筆頭') : null))),
+    onPick ? h('button', { class: 'btn small', onclick: onPick }, '盤面で見る') : null));
+}
+
 export function renderStocks(s: GameState, act: Act, busy: boolean, mySeat = 0, o: StockOptions = {}): HTMLElement | null {
   if (s.mode !== 'normal') return null;
   const map = getMap(s.mapId);
@@ -284,22 +313,29 @@ export function renderStocks(s: GameState, act: Act, busy: boolean, mySeat = 0, 
     : ['通り', '株価', '増資の余地', 'あなた', ''];
   return h('section', { class: `panel stocks${o.wide ? ' wide' : ''}`, 'aria-label': '株式市場' },
     h('h2', {}, '株式市場'),
-    o.onPick ? h('p', { class: 'note' }, '行を押すと、その通りのマスが盤面で点滅します。') : null,
+    h('p', { class: 'note' }, '帯は、その通りの株をだれがどれだけ持っているか（色はプレイヤー）。行を押すと、人ごとの株数が開きます。'),
     buyReason(s, busy, mySeat) ? h('p', { class: 'reason' }, buyReason(s, busy, mySeat)) : null,
     h('table', {},
       h('thead', {}, h('tr', {}, head.map((x) => h('th', {}, x)))),
       h('tbody', {}, map.streets.map((st, i) => {
         const top = topHolder(s, i);
-        const pick = () => o.onPick?.(i);
-        return h('tr', {
-          class: `${o.onPick ? 'pickable' : ''}${o.highlight === i ? ' picked' : ''}`,
-          tabindex: o.onPick ? '0' : null,
-          'aria-pressed': o.onPick ? String(o.highlight === i) : null,
-          onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('button')) pick(); },
-          onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } },
+        const open = openStreets.has(i);
+        // 行を押すと、人ごとの持ち株を開く・閉じる（その場で行を足し引きする）
+        const toggle = (row: HTMLElement) => {
+          if (openStreets.has(i)) { openStreets.delete(i); row.nextElementSibling?.classList.contains('holders-detail') && row.nextElementSibling.remove(); }
+          else { openStreets.add(i); row.after(holdersDetail(s, i, mySeat, head.length, o.onPick ? () => o.onPick!(i) : undefined)); }
+          row.setAttribute('aria-expanded', String(openStreets.has(i)));
+        };
+        const row = h('tr', {
+          class: `pickable${o.highlight === i ? ' picked' : ''}`,
+          tabindex: '0',
+          'aria-expanded': String(open),
+          onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('button')) toggle(e.currentTarget as HTMLElement); },
+          onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e.currentTarget as HTMLElement); } },
         },
           h('td', {}, h('span', { class: 'chip', style: { background: st.color } }), st.name,
-            top != null ? h('small', { class: 'top', style: { color: s.players[top].color } }, ` 筆頭:${s.players[top].name}`) : null),
+            top != null ? h('small', { class: 'top', style: { color: s.players[top].color } }, ` 筆頭:${s.players[top].name}`) : null,
+            holdersBar(s, i, mySeat)),
           h('td', { class: 'num' }, g(stockPrice(s, i))),
           o.wide ? h('td', { class: `num ${s.demand[i] > 1.005 ? 'up' : s.demand[i] < 0.995 ? 'down' : ''}` }, `×${s.demand[i].toFixed(2)}`) : null,
           o.wide ? h('td', { class: 'num' }, g(buyQuote(s, i, 1).cost)) : null,
@@ -308,7 +344,8 @@ export function renderStocks(s: GameState, act: Act, busy: boolean, mySeat = 0, 
           h('td', { class: 'num' }, `${me.shares[i]} 株`),
           h('td', { class: 'trade' }, o.wide ? h('div', { class: 'grid2' }, trade(i, 1), trade(i, 5)) : trade(i, 1)),
         );
-      }))),
+        return open ? [row, holdersDetail(s, i, mySeat, head.length, o.onPick ? () => o.onPick!(i) : undefined)] : [row];
+      }).flat())),
     h('p', { class: 'note' }, '株を買えるのは銀行（止まったとき・通ったとき）と両替所です。10 株単位。売るのは自分の番ならいつでも。利用料が払われるたびに 2 株につき 1G の配当、筆頭株主（50 株以上）は利用料の 10%。「増資の余地」が大きい通りほど、これから増資されて株価が上がる見込みがあります。'));
 }
 

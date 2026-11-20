@@ -4,7 +4,7 @@ import { bankOf, distances, forwardOptions, getMap } from './maps';
 import { step } from './rng';
 import {
   BUYOUT_MULT, BUYOUT_OWNER_SHARE, DEMAND_DECAY, DEMAND_MAX, DEMAND_MIN, LIQUIDATE_RATE, MAX_SHARES, STOCK_LOT,
-  TOP_HOLDER_RATE, buyQuote, sellableCash, canBuyout, isMonopoly, dividendFor, fee, investCap, netWorth, salary, sellQuote, topHolder,
+  TOP_HOLDER_RATE, buyQuote, sellableCash, canBuyout, isMonopoly, dividendFor, fee, investCap, netWorth, salary, sellQuote, stampAt, topHolder,
 } from './rules';
 import type { Action, CpuLevel, GameState, Mode, Player } from './state';
 import { FACILITY_NAMES, STAMP_NAMES } from './state';
@@ -296,9 +296,18 @@ function pass(s: GameState, sq: number) {
   const map = getMap(s.mapId);
   const p = cur(s);
   const square = map.squares[sq];
-  if (square.kind === 'stamp' && !p.stamps[square.stamp!]) {
-    p.stamps[square.stamp!] = true;
-    log(s, p.id, `${STAMP_NAMES[square.stamp!]}のスタンプを集めた`);
+  if (square.kind === 'stamp') {
+    const k = stampAt(s, sq);
+    if (!p.stamps[k]) {
+      p.stamps[k] = true;
+      log(s, p.id, square.rotating ? `切り替わりスタンプで${STAMP_NAMES[k]}のスタンプをもらった` : `${STAMP_NAMES[k]}のスタンプを集めた`);
+    }
+    // 切り替わりのマスは、誰が通っても次の種類へ
+    if (square.rotating) {
+      const next = (k + 1) % STAMP_NAMES.length;
+      s.rotating = { ...s.rotating, [sq]: next };
+      log(s, null, `切り替わりスタンプが${STAMP_NAMES[next]}に変わった`);
+    }
   }
   if (square.kind === 'bank') atBank(s);
 }

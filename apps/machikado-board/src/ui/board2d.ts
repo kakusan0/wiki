@@ -1,6 +1,6 @@
 // 2D の盤面（CSS グリッド）
 import { arrow, getMap } from '../game/maps';
-import { fee, isMonopoly, netWorth } from '../game/rules';
+import { fee, isMonopoly, netWorth, stampAt } from '../game/rules';
 import type { GameState } from '../game/state';
 import { FACILITY_NAMES, STAMP_NAMES } from '../game/state';
 import { CARDS } from '../game/cards';
@@ -49,7 +49,7 @@ export function renderBoard(s: GameState, v: BoardView): HTMLElement {
     let icon = '';
     let sub = '';
     if (sq.kind === 'bank') { icon = '🏦'; sub = '銀行'; }
-    if (sq.kind === 'stamp') { icon = STAMP_ICONS[sq.stamp!]; sub = STAMP_NAMES[sq.stamp!]; }
+    if (sq.kind === 'stamp') { const k = stampAt(s, sq.id); icon = STAMP_ICONS[k]; sub = sq.rotating ? `↻${STAMP_NAMES[k]}` : STAMP_NAMES[k]; }
     if (sq.kind === 'chance') { icon = '？'; sub = 'チャンス'; }
     if (sq.kind === 'plaza') { icon = '⛲'; sub = '広場'; }
     if (sq.kind === 'lot') {

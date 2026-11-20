@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { decide } from '../src/game/ai';
 import { MAPS, getMap } from '../src/game/maps';
 import {
-  adjacencyMult, buyQuote, canBuyout, fee, feeRate, investCap, investRoom, streetInvestRoom, netWorth, salary, sellQuote, stockPrice, topHolder,
+  adjacencyMult, buyQuote, canBuyout, fee, feeRate, investCap, investRoom, streetInvestRoom, netWorth, salary, sellQuote, stampAt, stockPrice, topHolder,
 } from '../src/game/rules';
 import type { GameState } from '../src/game/state';
 import { apply, newGame } from '../src/game/turn';
@@ -23,6 +23,55 @@ const standBefore = (s: GameState, sq: number) => {
   s.players[0].pos = w;
   s.players[0].prev = m.links[w].find((v) => v !== sq)!;
 };
+
+describe('切り替わりスタンプ', () => {
+  const rollTo = (s: GameState, n: number) => {
+    for (let seed = 0; seed < 1000; seed++) { const t = structuredClone(s); t.rng = seed; if (apply(t, { type: 'roll' }).dice === n) return t; }
+    throw new Error('not found');
+  };
+  const sqOf = (mapId: string) => getMap(mapId).squares.find((q) => q.rotating)!.id;
+  /** 0 番の人を切り替わりのマスの手前に立たせ、1 を出して止まる */
+  const landOn = (s: GameState) => { standBefore(s, sqOf(s.mapId)); return apply(rollTo(s, 1), { type: 'roll' }); };
+
+  it('どのマップにも 1 つずつあり、4 種の固定のスタンプも 1 つずつある', () => {
+    for (const m of MAPS) {
+      expect(m.squares.filter((q) => q.rotating)).toHaveLength(1);
+      for (let k = 0; k < 4; k++) expect(m.squares.filter((q) => q.kind === 'stamp' && !q.rotating && q.stamp === k)).toHaveLength(1);
+    }
+  });
+  it('はじめはパン。状態に記録がない（前の保存）ときもパン', () => {
+    const s = game();
+    expect(stampAt(s, sqOf('corner'))).toBe(0);
+    delete s.rotating;
+    expect(stampAt(s, sqOf('corner'))).toBe(0);
+  });
+  it('通った人は、いまの種類を持っていなければもらい、そのあと次の種類に変わる', () => {
+    const s0 = game();
+    const t = landOn(s0);
+    expect(t.players[0].stamps[0]).toBe(true);
+    expect(stampAt(t, sqOf('corner'))).toBe(1);
+  });
+  it('持っている人が通っても、種類は変わる（もらうものはない）', () => {
+    const s0 = game();
+    s0.players[0].stamps = [true, false, false, false];
+    const t = landOn(s0);
+    expect(t.players[0].stamps).toEqual([true, false, false, false]);
+    expect(stampAt(t, sqOf('corner'))).toBe(1);
+  });
+  it('パン → 花 → 本 → 鍵 → パン と回る', () => {
+    const s0 = game();
+    const sq = sqOf('corner');
+    const seen: number[] = [];
+    let s = s0;
+    for (let i = 0; i < 5; i++) {
+      s.phase = 'roll'; s.pending = null; s.moving = null; s.turn = 0;
+      s.players[0].stamps = [false, false, false, false];
+      seen.push(stampAt(s, sq));
+      s = landOn(s);
+    }
+    expect(seen).toEqual([0, 1, 2, 3, 0]);
+  });
+});
 
 describe('利用料', () => {
   it('ふつう：所有数で 15/25/35% 、独占で +10%', () => {

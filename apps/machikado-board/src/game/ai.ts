@@ -2,7 +2,7 @@
 import { forwardOptions, getMap, landingAfter } from './maps';
 import { hash01 } from './rng';
 import {
-  BUYOUT_MULT, MAX_SHARES, STOCK_LOT, buyQuote, fee, isMonopoly, netWorth, ownedInStreet, stockPrice, streetSquares,
+  BUYOUT_MULT, MAX_SHARES, STOCK_LOT, buyQuote, stampAt, fee, isMonopoly, netWorth, ownedInStreet, stockPrice, streetSquares,
 } from './rules';
 import type { Action, CpuLevel, GameState } from './state';
 import { bidPrice, canBuyStock, investOptions } from './turn';
@@ -174,7 +174,7 @@ function routeScores(s: GameState, pos: number, prev: number, left: number, stam
   const q = map.squares[pos];
   let sc = acc;
   const st = stamps.slice();
-  if (q.kind === 'stamp' && !st[q.stamp!]) { st[q.stamp!] = true; sc += 40; }
+  if (q.kind === 'stamp' && !st[stampAt(s, pos)]) { st[stampAt(s, pos)] = true; sc += 40; }
   if (q.kind === 'bank' && st.every(Boolean)) { sc += 200; st.fill(false); }
   if (left === 0) {
     const pr = s.props[pos];

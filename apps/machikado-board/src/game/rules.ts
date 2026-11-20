@@ -19,6 +19,13 @@ export const EASY_FEE_RATE = 0.2;
 
 export const salary = (level: number) => 200 + level * 60;
 
+/** スタンプのマスの、いまの種類（0..3）。切り替わりのマスは状態から読む */
+export function stampAt(state: GameState, sq: number): number {
+  const q = getMap(state.mapId).squares[sq];
+  if (q.rotating) return state.rotating?.[sq] ?? q.stamp ?? 0;
+  return q.stamp ?? 0;
+}
+
 export function streetSquares(state: GameState, street: number): number[] {
   return getMap(state.mapId).squares.filter((s) => s.kind === 'shop' && s.street === street).map((s) => s.id);
 }

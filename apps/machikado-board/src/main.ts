@@ -9,7 +9,8 @@ import { createBoard3D, DETAIL_NAMES, DICE_MS, type Board3D, type Detail } from 
 import { h } from './ui/dom';
 import { renderActions, renderInfo, renderLog, renderMe, renderPlayers, renderStocks, renderStreetInfo } from './ui/panels';
 
-const SAVE_KEY = 'machikado-board/save-v1';
+// v2：切り替わりスタンプのマスを足した（前の保存のゲームとはマスが合わない）
+const SAVE_KEY = 'machikado-board/save-v2';
 const SETTINGS_KEY = 'machikado-board/settings-v1';
 const MUTE_KEY = 'machikado-board/mute-v1';
 const app = document.getElementById('app')!;
