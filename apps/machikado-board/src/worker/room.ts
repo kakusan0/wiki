@@ -1,6 +1,6 @@
 // 部屋（合言葉ごとに 1 つ）。ゲームの進行はここが正で、端末は操作を送って結果を表示するだけ
 import { DurableObject } from 'cloudflare:workers';
-import type { Mode } from '../game/state';
+import type { CpuLevel, Mode } from '../game/state';
 import {
   EMOTES, RateLimiter, act, canRequestStart, join, leaveLobby, newRoom, planWake, shouldAutoStart, start, viewFor, wake,
   type Room,
@@ -28,8 +28,8 @@ export class RoomDO extends DurableObject<Env> {
     // 部屋を作る（Worker・相手探しから呼ばれる）
     if (url.pathname === '/init' && req.method === 'POST') {
       if (this.room) return Response.json({ ok: false }, { status: 409 });
-      const b = await req.json<{ code: string; mapId: string; mode: Mode; isPrivate: boolean }>();
-      this.room = newRoom(b.code, b.mapId, b.mode, b.isPrivate, this.now());
+      const b = await req.json<{ code: string; mapId: string; mode: Mode; isPrivate: boolean; cpu?: CpuLevel }>();
+      this.room = newRoom(b.code, b.mapId, b.mode, b.isPrivate, this.now(), b.cpu);
       await this.save();
       await this.schedule();
       return Response.json({ ok: true });

@@ -1,18 +1,20 @@
 // Worker の入口。/api/* だけを処理し、ほかは静的ファイル（ゲームの画面）を返す
 import { MAPS } from '../game/maps';
-import { isCode, randomCode } from './logic';
+import { cpuLevelOf, isCode, randomCode } from './logic';
+import type { CpuLevel } from '../game/state';
 
 export { MatchmakerDO } from './matchmaker';
 export { RoomDO } from './room';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
-async function readOptions(req: Request): Promise<{ mapId: string; mode: 'easy' | 'normal' } | null> {
+async function readOptions(req: Request): Promise<{ mapId: string; mode: 'easy' | 'normal'; cpu: CpuLevel } | null> {
   try {
-    const b = await req.json<{ mapId?: unknown; mode?: unknown }>();
+    const b = await req.json<{ mapId?: unknown; mode?: unknown; cpu?: unknown }>();
     const mapId = MAPS.some((m) => m.id === b.mapId) ? (b.mapId as string) : null;
     const mode = b.mode === 'easy' || b.mode === 'normal' ? b.mode : null;
-    return mapId && mode ? { mapId, mode } : null;
+    const cpu = cpuLevelOf(b.cpu); // 空いた席の CPU の強さ（ないときは「ふつう」）
+    return mapId && mode && cpu ? { mapId, mode, cpu } : null;
   } catch {
     return null;
   }
@@ -42,7 +44,7 @@ export default {
     if (url.pathname === '/api/match' && req.method === 'POST') {
       if (await limited(req, env)) return json({ error: '少し待ってからもう一度お試しください' }, 429);
       const o = await readOptions(req);
-      if (!o) return json({ error: 'マップかモードが正しくありません' }, 400);
+      if (!o) return json({ error: 'マップ・モード・CPU の強さが正しくありません' }, 400);
       const mm = env.MATCHMAKER.get(env.MATCHMAKER.idFromName('global'));
       const r = await mm.fetch('https://mm/match', { method: 'POST', body: JSON.stringify(o) });
       return json(await r.json(), r.status);
@@ -52,7 +54,7 @@ export default {
     if (url.pathname === '/api/rooms' && req.method === 'POST') {
       if (await limited(req, env)) return json({ error: '少し待ってからもう一度お試しください' }, 429);
       const o = await readOptions(req);
-      if (!o) return json({ error: 'マップかモードが正しくありません' }, 400);
+      if (!o) return json({ error: 'マップ・モード・CPU の強さが正しくありません' }, 400);
       for (let i = 0; i < 5; i++) {
         const code = randomCode();
         const r = await env.ROOM.get(env.ROOM.idFromName(code)).fetch('https://room/init', {

@@ -25,6 +25,8 @@ export interface Room {
   code: string;
   mapId: string;
   mode: Mode;
+  /** 空いた席に入る CPU の強さ（前からある部屋にはないので「ふつう」） */
+  cpu?: CpuLevel;
   isPrivate: boolean;
   createdAt: number;
   seats: Seat[];
@@ -51,9 +53,15 @@ export function randomToken(): string {
   return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function newRoom(code: string, mapId: string, mode: Mode, isPrivate: boolean, now: number): Room {
+/** CPU の強さ：ないときは「ふつう」、知らない値は null（断る） */
+export function cpuLevelOf(v: unknown): CpuLevel | null {
+  if (v === undefined || v === null) return 'normal';
+  return v === 'easy' || v === 'normal' || v === 'hard' ? v : null;
+}
+
+export function newRoom(code: string, mapId: string, mode: Mode, isPrivate: boolean, now: number, cpu: CpuLevel = 'normal'): Room {
   return {
-    code, mapId: MAPS.some((m) => m.id === mapId) ? mapId : MAPS[0].id, mode: mode === 'easy' ? 'easy' : 'normal',
+    code, mapId: MAPS.some((m) => m.id === mapId) ? mapId : MAPS[0].id, mode: mode === 'easy' ? 'easy' : 'normal', cpu: cpuLevelOf(cpu) ?? 'normal',
     isPrivate, createdAt: now, seats: [], hostToken: null, game: null, version: 0, moves: 0, deadline: null, last: null, endedAt: null, wakeAt: null,
   };
 }
@@ -142,7 +150,7 @@ export function start(room: Room, seed: number, now: number, maxRounds?: number)
   }
   room.game = newGame({
     mapId: room.mapId, mode: room.mode, seed, maxRounds,
-    players: room.seats.map((s) => ({ name: s.name, cpu: s.cpu ? ('normal' as CpuLevel) : null })),
+    players: room.seats.map((s) => ({ name: s.name, cpu: s.cpu ? (room.cpu ?? 'normal') : null })),
   });
   room.version++;
   room.deadline = now + TURN_MS;
@@ -233,6 +241,7 @@ export interface RoomView {
   code: string;
   mapId: string;
   mode: Mode;
+  cpu: CpuLevel;
   isPrivate: boolean;
   version: number;
   moves: number;
@@ -250,7 +259,7 @@ export function viewFor(room: Room, seat: number, now: number): RoomView {
   const me = room.seats[seat];
   const at = autoStartAt(room);
   return {
-    t: 'room', code: room.code, mapId: room.mapId, mode: room.mode, isPrivate: room.isPrivate, version: room.version, moves: room.moves,
+    t: 'room', code: room.code, mapId: room.mapId, mode: room.mode, cpu: room.cpu ?? 'normal', isPrivate: room.isPrivate, version: room.version, moves: room.moves,
     seats: room.seats.map((s) => ({ name: s.name, cpu: s.cpu, connected: s.connected })),
     you: seat,
     host: !!me && room.hostToken === me.token,

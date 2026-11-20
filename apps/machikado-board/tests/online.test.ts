@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALONE_MS, AUTO_START_MS, RateLimiter, TURN_MS, act, canRequestStart, cleanName, isAction, isCode, join, leaveLobby, newRoom,
+  ALONE_MS, AUTO_START_MS, RateLimiter, TURN_MS, act, canRequestStart, cleanName, cpuLevelOf, isAction, isCode, join, leaveLobby, newRoom,
   planWake, randomCode, sanitize, shouldAutoStart, start, viewFor, wake,
 } from '../src/worker/logic';
 
@@ -109,6 +109,31 @@ describe('入室と開始', () => {
     leaveLobby(p, 0);
     expect(p.hostToken).toBe(g.token);
     expect(p.seats).toHaveLength(1);
+  });
+});
+
+describe('空いた席の CPU の強さ', () => {
+  it('部屋を作るときに選んだ強さの CPU が、空いた席に入る', () => {
+    const r = newRoom('ABCDEF', 'corner', 'normal', true, 0, 'hard');
+    join(r, tok(), 'たろう', 0);
+    start(r, 1, 0);
+    expect(r.game!.players.map((p) => p.cpu)).toEqual([null, 'hard', 'hard', 'hard']);
+    expect(viewFor(r, 0, 0).cpu).toBe('hard');
+  });
+  it('選ばなかったとき・前からある部屋は「ふつう」', () => {
+    const r = room();
+    expect(r.cpu).toBe('normal');
+    delete r.cpu; // 前からある部屋（保存された形に cpu がない）
+    join(r, tok(), 'はなこ', 0);
+    start(r, 1, 0);
+    expect(r.game!.players.slice(1).every((p) => p.cpu === 'normal')).toBe(true);
+    expect(viewFor(r, 0, 0).cpu).toBe('normal');
+  });
+  it('知らない強さは断る', () => {
+    expect(cpuLevelOf(undefined)).toBe('normal');
+    expect(cpuLevelOf('hard')).toBe('hard');
+    expect(cpuLevelOf('oni')).toBeNull();
+    expect(cpuLevelOf(3)).toBeNull();
   });
 });
 

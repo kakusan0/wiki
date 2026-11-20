@@ -1,5 +1,5 @@
 // オンライン対戦の接続。切れたら自動でつなぎ直し、同じ席に戻る
-import type { Action, Mode } from '../game/state';
+import type { Action, CpuLevel, Mode } from '../game/state';
 
 export type { RoomView } from '../worker/logic';
 import type { RoomView } from '../worker/logic';
@@ -29,8 +29,9 @@ async function post(path: string, body: unknown): Promise<{ code?: string; error
     return { error: 'サーバーにつながりません' };
   }
 }
-export const findMatch = (mapId: string, mode: Mode) => post(import.meta.env.BASE_URL + 'api/match', { mapId, mode });
-export const createRoom = (mapId: string, mode: Mode) => post(import.meta.env.BASE_URL + 'api/rooms', { mapId, mode });
+// cpu：空いた席に入る CPU の強さ
+export const findMatch = (mapId: string, mode: Mode, cpu: CpuLevel) => post(import.meta.env.BASE_URL + 'api/match', { mapId, mode, cpu });
+export const createRoom = (mapId: string, mode: Mode, cpu: CpuLevel) => post(import.meta.env.BASE_URL + 'api/rooms', { mapId, mode, cpu });
 
 export class OnlineClient {
   private ws: WebSocket | null = null;

@@ -18,6 +18,7 @@ interface Settings {
   mapId: string; mode: Mode; cpu: CpuLevel; name: string; fast: boolean; view: '2d' | '3d'; detail: Detail;
   hideNames: boolean; // オンラインで相手の名前を表示しない
 }
+const CPU_LABEL: Record<CpuLevel, string> = { easy: 'やさしい', normal: 'ふつう', hard: 'つよい' };
 const phone = window.matchMedia('(max-width: 600px)').matches;
 const defaults: Settings = {
   mapId: 'corner', mode: 'normal', cpu: 'normal', name: 'あなた', fast: false, view: '3d', detail: phone ? 'mid' : 'high', hideNames: false,
@@ -477,7 +478,7 @@ function renderLobby() {
     h('h1', {}, r?.isPrivate === false ? '相手を探しています' : '対戦の待合室'),
     netStatus !== 'open' ? h('p', { class: 'lead' }, 'サーバーにつないでいます…') : null,
     notice ? h('p', { class: 'error', role: 'alert' }, notice) : null,
-    r ? h('p', { class: 'lead' }, `${map!.name}・${r.mode === 'easy' ? 'かんたん' : 'ふつう'}`) : null,
+    r ? h('p', { class: 'lead' }, `${map!.name}・${r.mode === 'easy' ? 'かんたん' : 'ふつう'}・空いた席の CPU：${CPU_LABEL[r.cpu ?? 'normal']}`) : null,
     r?.isPrivate ? h('div', { class: 'panel' },
       h('h2', {}, '合言葉'),
       h('p', { class: 'code' }, code),
@@ -529,7 +530,7 @@ function renderSetup() {
 
     h('h2', { class: 'sub' }, '1 人で遊ぶ'),
     h('fieldset', {}, h('legend', {}, 'コンピューターの強さ'),
-      radio('cpu', 'easy', 'やさしい', ''), radio('cpu', 'normal', 'ふつう', ''), radio('cpu', 'hard', 'つよい', '')),
+      radio('cpu', 'easy', CPU_LABEL.easy, ''), radio('cpu', 'normal', CPU_LABEL.normal, ''), radio('cpu', 'hard', CPU_LABEL.hard, '')),
     h('button', { class: 'btn primary big', onclick: () => {
       keep();
       const cpuNames = ['ミナト', 'サクラ', 'ホシノ'];
@@ -544,10 +545,10 @@ function renderSetup() {
     } }, saved ? 'あたらしく始める' : 'はじめる'),
 
     h('h2', { class: 'sub' }, 'オンラインで遊ぶ'),
-    h('p', { class: 'note' }, '知らない人とも遊べます。チャットはなく、決まったメッセージだけ送れます。名前は 8 文字までで、ふさわしくない名前は「プレイヤーN」になります。'),
-    h('button', { class: 'btn primary big', onclick: () => void goWith(findMatch(settings.mapId, settings.mode)) }, '相手を探す'),
+    h('p', { class: 'note' }, '知らない人とも遊べます。チャットはなく、決まったメッセージだけ送れます。名前は 8 文字までで、ふさわしくない名前は「プレイヤーN」になります。空いた席には、上で選んだ強さの CPU が入ります（相手探しは、同じ強さを選んだ人どうし）。'),
+    h('button', { class: 'btn primary big', onclick: () => void goWith(findMatch(settings.mapId, settings.mode, settings.cpu)) }, '相手を探す'),
     h('div', { class: 'btns' },
-      h('button', { class: 'btn', onclick: () => void goWith(createRoom(settings.mapId, settings.mode)) }, '合言葉で部屋を作る'),
+      h('button', { class: 'btn', onclick: () => void goWith(createRoom(settings.mapId, settings.mode, settings.cpu)) }, '合言葉で部屋を作る'),
       codeIn,
       h('button', { class: 'btn', onclick: () => {
         const c = codeIn.value.trim().toUpperCase();
