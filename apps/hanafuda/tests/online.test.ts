@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { act, checkTimeout, cleanOptions, join, newRoom, rematch, viewFor, NEXT_MS } from '../src/worker/logic';
 import { DEFAULT_OPTIONS } from '../src/game/yaku';
 
@@ -53,7 +53,10 @@ describe('オンラインの部屋', () => {
     expect(r.state!.results).toHaveLength(3);
     expect(rematch(r, 0, t)).toMatchObject({ ok: true });
     expect(r.state!.phase).toBe('over');
+    // もう一局の配り方は乱数で決まる。配った手で役ができてすぐ終わる配り方もあるので、種を決めておく
+    const fixed = vi.spyOn(crypto, 'getRandomValues').mockImplementation(<T extends ArrayBufferView | null>(a: T) => { (a as unknown as Uint32Array)[0] = 42; return a; });
     rematch(r, 1, t);
+    fixed.mockRestore();
     expect(r.state!.round).toBe(1);
     expect(r.state!.results).toHaveLength(0);
   });
