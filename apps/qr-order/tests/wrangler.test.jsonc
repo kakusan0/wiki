@@ -1,0 +1,10 @@
+// テスト専用の設定：tests/entry.ts で /qr-order/ の下に置いて動かす（npm test が使う）
+{
+  "name": "qr-order-test",
+  "main": "entry.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "../public", "binding": "ASSETS", "run_worker_first": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "qr-order", "database_id": "2a9289c4-0b95-42fe-afc5-49b1f82a12e9", "migrations_dir": "../migrations" }
+  ]
+}

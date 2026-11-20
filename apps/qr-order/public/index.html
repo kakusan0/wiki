@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR オーダー | お客様のスマホでできる、店頭のセルフ決済</title>
+<meta name="description" content="QR オーダーは、お客様が自分のスマートフォンで商品を読み取り、その場で支払える店頭のセルフ決済サービスです。アプリのインストールは不要。クレジットカード・Apple Pay・Google Pay・PayPay に対応しています。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="QR オーダー | 店頭のセルフ決済">
+<meta property="og:description" content="お客様のスマホで、読み取って、そのまま支払う。レジに並ばない買い物を、アプリなしで。">
+<meta property="og:image" content="/qr-order/icons/app-512.png">
+<link rel="stylesheet" href="/qr-order/style.css">
+<link rel="stylesheet" href="/qr-order/site.css">
+<script src="/qr-order/theme.js"></script>
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/app-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<script src="/qr-order/pwa.js" defer></script>
+</head>
+<body class="site">
+
+<p class="shopper-note">お買い物中のお客様へ：店頭に掲示された QR コードを、スマートフォンのカメラで読み取ってください。<a href="/qr-order/guide/customer">使い方</a></p>
+
+<header class="site-head">
+  <a class="site-logo" href="/qr-order/"><img src="/qr-order/icons/app-192.png" alt="" width="32" height="32"><span>QR オーダー</span></a>
+  <nav class="site-nav" aria-label="ページ内の移動">
+    <a href="#how">使い方</a>
+    <a href="#features">特長</a>
+    <a href="#stores">お店の方へ</a>
+    <a href="#faq">よくある質問</a>
+  </nav>
+  <a class="site-cta small" href="#contact">導入のご相談</a>
+</header>
+
+<main class="site-main">
+
+  <!-- ===== ファーストビュー ===== -->
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">店頭のセルフ決済サービス</p>
+      <h1>読み取って、<br>そのまま支払う。<br><span class="nw"><span class="hl">レジに並ばない</span></span><span class="nw">お買い物。</span></h1>
+      <p class="lead">お客様が自分のスマートフォンで商品の QR コードやバーコードを読み取り、その場でお支払いまで済ませられます。アプリのインストールも、会員登録も要りません。</p>
+      <div class="hero-actions">
+        <a class="site-cta" href="#how">お客様の使い方を見る</a>
+        <a class="site-cta ghost" href="#contact">導入のご相談</a>
+      </div>
+      <ul class="pay-list" aria-label="使える支払い方法">
+        <li>クレジットカード</li><li>Apple Pay</li><li>Google Pay</li><li>Link</li><li>PayPay</li>
+      </ul>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <figure class="phone back"><img src="/qr-order/guide/img/c2-scan.jpg" alt="" width="780" height="1560"></figure>
+      <figure class="phone front"><img src="/qr-order/guide/img/c6-done.jpg" alt="" width="780" height="1560"></figure>
+    </div>
+  </section>
+
+  <!-- ===== 使い方 ===== -->
+  <section id="how" class="block">
+    <p class="eyebrow">How it works</p>
+    <h2>お客様の使い方は、4 ステップ</h2>
+    <p class="block-lead">店内で、お客様のスマートフォンだけで完結します。</p>
+    <ol class="steps">
+      <li>
+        <figure class="phone"><img src="/qr-order/guide/img/c1-start.jpg" alt="店舗のページを開いたところ" width="780" height="1560" loading="lazy"></figure>
+        <span class="step-no">1</span>
+        <h3>店頭の QR を読み取る</h3>
+        <p>入口やレジ横の QR コードをカメラで読み取ると、お店のページが開きます。</p>
+      </li>
+      <li>
+        <figure class="phone"><img src="/qr-order/guide/img/c2-scan.jpg" alt="商品のバーコードを読み取っているところ" width="780" height="1560" loading="lazy"></figure>
+        <span class="step-no">2</span>
+        <h3>商品を読み取る</h3>
+        <p>商品の QR・バーコード、またはバーコードの下の番号を読み取ると、カートに入ります。</p>
+      </li>
+      <li>
+        <figure class="phone"><img src="/qr-order/guide/img/c5-pay.jpg" alt="支払い方法を選ぶ画面" width="780" height="1560" loading="lazy"></figure>
+        <span class="step-no">3</span>
+        <h3>その場で支払う</h3>
+        <p>カード、Apple Pay、Google Pay、PayPay などから選んで支払います。</p>
+      </li>
+      <li>
+        <figure class="phone"><img src="/qr-order/guide/img/c6-done.jpg" alt="支払い完了の画面" width="780" height="1560" loading="lazy"></figure>
+        <span class="step-no">4</span>
+        <h3>完了の画面を見せる</h3>
+        <p>この画面が購入の証明です。スタッフに求められたら見せてください。</p>
+      </li>
+    </ol>
+    <p class="block-more"><a href="/qr-order/guide/customer">お客様向けの使い方を詳しく見る →</a></p>
+  </section>
+
+  <!-- ===== 特長 ===== -->
+  <section id="features" class="block">
+    <p class="eyebrow">Features</p>
+    <h2>QR オーダーの特長</h2>
+    <div class="features">
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></svg>
+        <h3>アプリ不要</h3>
+        <p>ブラウザで動くので、お客様はインストールも会員登録も不要。ホーム画面に追加して使うこともできます。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><path d="M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>
+        <h3>QR もバーコードも</h3>
+        <p>お店で作った QR コードのほか、商品にもともと付いている JAN バーコードや、その下の番号も読み取れます。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/></svg>
+        <h3>いろいろな支払い方法</h3>
+        <p>クレジットカード、Apple Pay、Google Pay、Link、PayPay に対応。決済は Stripe が処理し、カード番号はお店に残りません。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <h3>店の外からの注文を防止</h3>
+        <p>支払いのときに位置情報で店舗の近くにいることを確認します。保存するのは店舗からの距離だけです。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <h3>問い合わせは LINE で</h3>
+        <p>お客様がチャットで送った問い合わせは、お店の LINE に届きます。LINE で返信すれば、お客様の画面に表示されます。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16l-1.5 12a2 2 0 0 1-2 1.8h-9a2 2 0 0 1-2-1.8z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="M9 14l2 2 4-4"/></svg>
+        <h3>返品・交換を写真で受付</h3>
+        <p>不良品などの申し込みは、商品の写真付きで届きます。承認・返金まで管理画面で進められます。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <h3>お酒・たばこの年齢確認</h3>
+        <p>年齢制限のある商品は、お支払い後にスタッフが確認するまで「確認待ち」と表示。確認できなければ返金できます。</p>
+      </article>
+      <article class="feature">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
+        <h3>購入完了メール</h3>
+        <p>希望したお客様には、登録番号や税率ごとの消費税を記載した明細をメールで送ります。</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===== お店の方へ ===== -->
+  <section id="stores" class="block">
+    <p class="eyebrow">For stores</p>
+    <h2>お店の運営は、スマホと PC から</h2>
+    <div class="store-rows">
+      <div class="store-row">
+        <figure class="shot wide"><img src="/qr-order/guide/img/s14-pc-orders.jpg" alt="管理画面の注文一覧（PC）" width="1280" height="800" loading="lazy"></figure>
+        <div>
+          <h3>注文をリアルタイムで確認</h3>
+          <p>支払いが済んだ注文が、管理画面に次々と表示されます。注文番号は毎日 001 から。年齢確認や返金もここから行えます。</p>
+        </div>
+      </div>
+      <div class="store-row reverse">
+        <figure class="phone"><img src="/qr-order/guide/img/s8-barcode-scan.jpg" alt="バーコードで商品を登録しているところ" width="780" height="1560" loading="lazy"></figure>
+        <div>
+          <h3>商品登録はバーコードを読むだけ</h3>
+          <p>商品のバーコードをスマホで読み取ると、商品名の候補が自動で入ります。価格と税率を確かめて登録するだけ。販売の一時停止もワンタップです。</p>
+        </div>
+      </div>
+      <div class="store-row">
+        <figure class="shot wide crop"><img src="/qr-order/guide/img/s17-returns.jpg" alt="管理画面の返品・交換の一覧" width="1280" height="850" loading="lazy"></figure>
+        <div>
+          <h3>返品・返金もまとめて管理</h3>
+          <p>写真付きの申し込みを見て、返金か交換かを決めるだけ。返金は決済に使われた支払い方法へ自動で戻ります。一部の商品だけの返金にも対応しています。</p>
+        </div>
+      </div>
+    </div>
+    <ul class="checks">
+      <li>スタッフのログインはパスキー（指紋・顔認証）。パスワードを覚える必要がありません</li>
+      <li>管理者とスタッフで、できる操作を分けられます</li>
+      <li>店舗の位置は、管理画面の地図で設定できます</li>
+      <li>支払いが済まなかった注文は、24 時間で自動的に消去します</li>
+    </ul>
+  </section>
+
+  <!-- ===== 安心・法令 ===== -->
+  <section class="block trust">
+    <h2>安心してお使いいただくために</h2>
+    <div class="trust-grid">
+      <div><h3>決済情報を持たない</h3><p>カード番号などは決済事業者（Stripe）が直接扱い、このサービスには保存されません。</p></div>
+      <div><h3>個人情報は最小限</h3><p>氏名・住所・電話番号は取得しません。位置情報も、店舗からの距離だけを記録します。</p></div>
+      <div><h3>法令に沿った表示</h3><p>特定商取引法に基づく表記、利用規約、プライバシーポリシーを、お客様がいつでも確認できます。</p></div>
+    </div>
+  </section>
+
+  <!-- ===== 導入の流れ ===== -->
+  <section class="block">
+    <p class="eyebrow">Getting started</p>
+    <h2>導入の流れ</h2>
+    <ol class="flow">
+      <li><strong>ご相談</strong><span>お店の規模や取り扱う商品をお聞きします。</span></li>
+      <li><strong>店舗と商品の登録</strong><span>管理画面で、店舗情報と商品を登録します。</span></li>
+      <li><strong>QR コードを掲示</strong><span>管理画面から店舗の QR コードを印刷し、入口やレジ横に貼ります。</span></li>
+      <li><strong>ご利用開始</strong><span>お客様が読み取れば、すぐにセルフ決済が始まります。</span></li>
+    </ol>
+  </section>
+
+  <!-- ===== よくある質問 ===== -->
+  <section id="faq" class="block">
+    <p class="eyebrow">FAQ</p>
+    <h2>よくある質問</h2>
+    <div class="faq">
+      <details><summary>お客様はアプリを入れる必要がありますか？</summary><p>いいえ。スマートフォンのブラウザで動きます。QR コードを読み取るとそのまま使えます。</p></details>
+      <details><summary>どんなスマートフォンで使えますか？</summary><p>カメラ付きの iPhone・Android の、最新に近い Safari や Chrome でお使いいただけます。</p></details>
+      <details><summary>支払いが済んだかどうか、お店はどう確認しますか？</summary><p>お客様の画面に表示される「購入の証明」（注文番号と時刻が動いて表示されます）と、管理画面の注文一覧で確認できます。</p></details>
+      <details><summary>お酒やたばこも売れますか？</summary><p>はい。年齢制限のある商品に設定すると、お支払い後にスタッフが年齢を確認するまで「確認待ち」と表示されます。確認できない場合は、その商品の代金を返金できます。</p></details>
+      <details><summary>返品や交換はどうなりますか？</summary><p>お客様都合の返品はお受けしない前提です。不良・誤りがあった場合、お客様は写真を添えて画面から申し込み、お店が内容を確認して返金または交換します。</p></details>
+      <details><summary>お客様からの問い合わせには、どう返信しますか？</summary><p>お店の LINE 公式アカウントに届き、LINE で返信できます。管理画面からも返信できます。</p></details>
+    </div>
+  </section>
+
+  <!-- ===== お問い合わせ ===== -->
+  <section id="contact" class="block contact">
+    <h2>導入のご相談</h2>
+    <p>QR オーダーの導入や、デモのご希望はお気軽にお問い合わせください。</p>
+    <p class="contact-to"><span class="todo">【お問い合わせ先（メールアドレス・電話番号など）】</span></p>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <a href="/qr-order/guide/">使い方</a>
+  <a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>
+  <a href="/qr-order/legal/terms">利用規約</a>
+  <a href="/qr-order/legal/privacy">プライバシーポリシー</a>
+  <span class="copy">© QR オーダー</span>
+</footer>
+</body>
+</html>

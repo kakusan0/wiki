@@ -1,0 +1,29 @@
+{
+  "name": "qr-order",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run.mjs",
+    "test:api": "node tests/run.mjs api",
+    "test:ui": "node tests/run.mjs ui",
+    "report": "node tests/report.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:seed:local": "wrangler d1 execute DB --local --file=seed.sql",
+    "db:seed:remote": "wrangler d1 execute DB --remote --file=seed.sql"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^14.1.0",
+    "hono": "^4.6.0",
+    "qrcode-generator": "^1.4.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261113.1",
+    "playwright": "1.63.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

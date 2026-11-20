@@ -2,8 +2,19 @@
   "name": "wiki",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "build": "node build.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/each.mjs test && node --test site/tests/*.test.mjs worker/*.test.ts",
+    "typecheck": "node scripts/each.mjs typecheck && tsc --noEmit -p worker",
+    "dev": "npm run build && wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261113.1",
+    "typescript": "5.8.3",
+    "wrangler": "^4.0.0",
+    "@types/node": "^22.0.0"
   }
 }

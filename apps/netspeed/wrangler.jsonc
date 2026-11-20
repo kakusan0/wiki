@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "netspeed",
+  "compatibility_date": "2026-10-01",
+  // /api/* は記録の受け口と集計（Worker）。ほかはビルドした画面をそのまま配信する
+  "main": "src/worker/index.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    // database_id は Cloudflare で作った D1（netspeed）の ID
+    { "binding": "DB", "database_name": "netspeed", "database_id": "aa28f073-5544-426d-a3be-f9ecc2663420", "migrations_dir": "migrations" }
+  ],
+  "vars": {
+    "TZ_OFFSET_MIN": "540", // 日本時間（UTC+9）で集計する
+    "RETAIN_DAYS": "90" // 1 分ごとの記録を残す日数（1 時間ごとのまとめは 400 日）
+  },
+  // 毎日 1 回、古い記録を消す（日本時間 3:17）
+  "triggers": { "crons": ["17 18 * * *"] },
+  "observability": { "enabled": true }
+}

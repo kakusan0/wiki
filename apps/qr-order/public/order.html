@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ご注文状況</title>
+<link rel="stylesheet" href="/qr-order/style.css">
+<script src="/qr-order/theme.js"></script>
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/app-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/qr-order/pwa.js" defer></script>
+<script src="/qr-order/orders-local.js" defer></script>
+<script src="/qr-order/order.js" defer></script>
+</head>
+<body>
+<header class="bar"><h1 id="store-name">ご注文状況</h1></header>
+<main>
+  <div id="ticket" class="card ticket pending" aria-live="polite">
+    <span id="ticket-icon" class="ticket-icon" hidden><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+    <div id="state" class="state">お支払いを確認しています…</div>
+    <div id="no-label" class="note" hidden>注文番号</div>
+    <span id="pickup" class="pickup" hidden></span>
+    <div id="hint" class="note"></div>
+    <div id="clock" class="clock"></div>
+  </div>
+
+  <section id="receipt" hidden>
+    <h2>ご利用明細</h2>
+    <div class="card">
+      <div id="receipt-head" class="note"></div>
+      <table><tbody id="lines"></tbody></table>
+      <p class="note">※は軽減税率（8%）対象商品です。</p>
+      <p id="age-law" class="note" hidden>20 歳未満の者の飲酒・喫煙は法律で禁止されています。</p>
+      <p class="note">商品の不良・誤り、二重のお支払いなどのお問い合わせは、<a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>に記載の連絡先、または店舗スタッフまでお申し出ください。その際、この画面の注文番号と注文 ID をお知らせください。</p>
+      <div class="ticket-actions"><a id="contact-link" class="button-link" href="#" hidden><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>問い合わせる</a><a id="shop-link" class="button-link dark" href="#" hidden>続けて買う</a></div>
+      <p><a id="return-link" class="button-link" href="#" hidden>商品の不良・誤りがあった（返品・交換の申し込み）</a></p>
+    </div>
+  </section>
+</main>
+<footer>
+  <a href="/qr-order/guide/customer">使い方</a>
+  <a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>
+  <a href="/qr-order/legal/terms">利用規約</a>
+  <a href="/qr-order/legal/privacy">プライバシーポリシー</a>
+</footer>
+</body>
+</html>

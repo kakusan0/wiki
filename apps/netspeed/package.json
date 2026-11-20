@@ -1,0 +1,20 @@
+{
+  "name": "netspeed",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types src/worker/worker-configuration.d.ts",
+    "deploy": "wrangler d1 migrations apply netspeed --remote && wrangler deploy"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "5.8.3",
+    "vite": "6.4.6",
+    "vitest": "4.1.11",
+    "wrangler": "^4.0.0"
+  }
+}

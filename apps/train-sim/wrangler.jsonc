@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "train-sim",
+  "compatibility_date": "2026-10-01",
+  // 画面だけのアプリ（サーバーの処理はない）。ビルドした dist をそのまま配信する
+  "assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+}

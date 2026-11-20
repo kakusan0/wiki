@@ -1,4 +1,5 @@
 name: Check
+# 全作品の型の検査・テスト・ビルドを、まとめて 1 回で回す
 on:
   push:
     branches: [main]
@@ -8,17 +9,30 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WRANGLER_SEND_METRICS: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - id: install
-        run: echo "依存なし"
+        run: npm ci
       - id: typecheck
-        run: node --check build.mjs && node --check works.mjs
+        run: npm run typecheck
+      # QR オーダーの画面テストで使うブラウザ
+      - name: ブラウザを入れる
+        run: npx playwright install --with-deps chromium
       - id: test
         run: npm test
+      - name: 失敗したときの QR オーダーのログ
+        if: failure()
+        run: |
+          for f in apps/qr-order/tests/.state/app.log apps/qr-order/tests/.state/fake-services.log; do
+            [ -f "$f" ] && { echo "== $f"; tail -n 80 "$f"; }
+          done
       - id: build
         run: npm run build
 

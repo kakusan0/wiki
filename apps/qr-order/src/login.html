@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>スタッフログイン</title>
+<link rel="stylesheet" href="/qr-order/style.css">
+<script src="/qr-order/theme.js"></script>
+<link rel="manifest" href="/qr-order/staff.webmanifest">
+<meta name="apple-mobile-web-app-title" content="店舗管理">
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/staff-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/qr-order/pwa.js" defer></script>
+<script src="/qr-order/passkey.js"></script>
+</head>
+<body>
+<header class="bar"><h1>スタッフログイン</h1></header>
+<main>
+  <div class="card form">
+    <p id="reauth" class="gate" hidden><strong>このページを開くには、パスキーでの本人確認が必要です。</strong>ログイン中でも、開くたびに確認します。</p>
+    <p>この端末に登録したパスキー（指紋・顔・画面ロック）でログインします。</p>
+    <button id="login" class="primary">パスキーでログイン</button>
+    <p id="error" class="error" role="alert" hidden></p>
+  </div>
+  <p class="note">はじめて使う方、端末を変えた方は <a href="/qr-order/staff/setup">セットアップ</a> へ。</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+// ページ一覧など、開くたびに本人確認が必要なページから来たとき
+if (new URLSearchParams(location.search).get('reauth') === '1') {
+  $('reauth').hidden = false;
+  $('login').textContent = 'パスキーで本人確認';
+}
+const fail = (msg) => { $('error').textContent = msg; $('error').hidden = false; $('login').disabled = false; };
+const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+
+$('login').onclick = async () => {
+  $('login').disabled = true; $('error').hidden = true;
+  if (!passkey.supported()) return fail('このブラウザはパスキーに対応していません。最新の Chrome / Safari / Edge をお使いください。');
+  try {
+    const start = await post('/qr-order/api/staff/login/options');
+    if (start.status === 429) return fail('試行回数が多すぎます。15 分ほど待ってからやり直してください。');
+    if (!start.ok) throw new Error();
+    const { options, challengeId } = await start.json();
+    let response;
+    try { response = await passkey.get(options); }
+    catch { return fail('パスキーの確認が完了しませんでした。この端末に登録がない場合は、セットアップを行ってください。'); }
+    const res = await post('/qr-order/api/staff/login/verify', { challengeId, response });
+    if (res.ok) {
+      // ログイン後の戻り先（このサイトの中のページだけ）
+      const next = new URLSearchParams(location.search).get('next') || '';
+      location.href = /^\/(?![\/\\])/.test(next) ? next : '/qr-order/staff';
+      return;
+    }
+    fail('ログインできませんでした。パスキーが無効になっているか、アカウントが停止されています。');
+  } catch {
+    fail('通信できませんでした。もう一度お試しください。');
+  }
+};
+</script>
+</body>
+</html>

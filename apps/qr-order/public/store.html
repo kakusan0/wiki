@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ご注文</title>
+<link rel="stylesheet" href="/qr-order/style.css">
+<script src="/qr-order/theme.js"></script>
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/app-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/qr-order/pwa.js" defer></script>
+<script src="https://js.stripe.com/v3/" defer></script>
+<script src="/qr-order/vendor/jsQR.js" defer></script>
+<script src="/qr-order/vendor/zxing.min.js" defer></script>
+<script src="/qr-order/barcode.js" defer></script>
+<script src="/qr-order/ocr.js" defer></script>
+<script src="/qr-order/scanview.js" defer></script>
+<script src="/qr-order/orders-local.js" defer></script>
+<script src="/qr-order/geo.js" defer></script>
+<script src="/qr-order/store.js" defer></script>
+</head>
+<body>
+<header class="shop-head">
+  <div class="shop-title"><span class="hello">ご来店ありがとうございます</span><h1 id="store-name">ご注文</h1></div>
+</header>
+<main id="shop">
+  <p id="error" class="error" role="alert" hidden></p>
+  <p id="gate" class="gate" role="status" hidden>ご注文には、店頭に表示されている QR コードの読み取りが必要です。スキャンの画面で、店頭の QR コードを読み取ってください。</p>
+  <p id="last-order" hidden><a href="#">直近のご注文（購入の証明）を表示する</a></p>
+
+  <!-- スキャンとカートの切り替え。左右のフリックでも切り替わる -->
+  <div class="seg-wrap">
+    <div id="seg" class="seg" role="group" aria-label="表示の切り替え" data-view="scan">
+      <span class="seg-ind" aria-hidden="true"></span>
+      <button id="tab-scan" type="button" aria-pressed="true"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 9v6"/><path d="M12 9v6"/><path d="M16 9v6"/></svg>スキャン</button>
+      <button id="tab-cart" type="button" aria-pressed="false"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2.2 10h9.6L20 8H7"/><path d="M9.5 19.5h.01"/><path d="M17 19.5h.01"/></svg>カート<span id="tab-count" class="seg-count" hidden>0</span></button>
+    </div>
+  </div>
+
+  <section id="panel-scan" class="panel" aria-label="スキャン">
+    <div id="scanner" class="scanner">
+      <div class="scan-frame">
+        <video id="scan-video" playsinline muted></video>
+        <div id="scan-guide" class="scan-guide" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
+        <div id="scan-flash" class="scan-flash" aria-hidden="true"></div>
+        <button id="scan-open" class="scan-start" type="button" hidden><svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 9v6"/><path d="M12 9v6"/><path d="M16 9v6"/></svg><span>カメラを起動してスキャン</span><small>バーコード・QR コードを読み取ります</small></button>
+        <button id="scan-switch" class="scan-switch" type="button" aria-label="カメラを切り替える（前面 / 背面）" hidden><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 0 1 14-3l2 2"/><path d="M20 4v4h-4"/><path d="M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M4 20v-4h4"/></svg></button>
+      </div>
+      <p id="scan-live" class="scan-live" aria-live="polite">カメラを起動すると、読み取りを始めます。</p>
+      <div id="scan-last" class="scan-last" hidden><span class="scan-last-icon"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><strong id="scan-last-name"></strong><span id="scan-last-price"></span></div></div>
+      <p id="scan-status" class="note" aria-live="polite">明るい枠の中だけを読み取ります。QR コードまたはバーコード全体が枠に入るように写してください。</p>
+      <button id="scan-close" class="wide" type="button" hidden>カメラを止める</button>
+    </div>
+    <p class="note swipe-hint">左へフリックすると、カートを確認できます。</p>
+  </section>
+
+  <section id="panel-cart" class="panel" aria-label="カート" hidden>
+    <div class="cart-head"><h2>カートの中身</h2><span class="note">税込・※は軽減税率 8%</span></div>
+    <div id="cart"></div>
+
+    <section id="confirm" hidden>
+      <h2>ご注文内容の確認</h2>
+      <div class="card">
+        <table><tbody id="lines"></tbody></table>
+        <dl class="terms">
+          <dt>支払方法</dt><dd><span id="methods">クレジットカード（JCB ほか）/ Apple Pay / Google Pay / Link / PayPay</span><span id="methods-note" class="note" hidden></span></dd>
+          <dt>支払時期</dt><dd>「支払う」を押し、認証・承認が完了した時点で決済が確定します</dd>
+          <dt>引渡時期</dt><dd>お客様が店頭でお取りになった商品を、決済完了と同時にお引き渡しします</dd>
+          <dt>申込期間</dt><dd>期間の定めはありません（ご来店中にお支払いください）</dd>
+          <dt>キャンセル</dt><dd>決済後のお客様都合によるキャンセル・返品はできません。商品不良・誤りの場合は店頭で返金または交換します</dd>
+        </dl>
+        <label class="mail-box">購入完了メールの送付先（任意）<input id="receipt-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="例: name@example.com"><span class="note">入力すると、注文番号とご利用明細をメールでお送りします。メールアドレスはこの送信にのみ使い、送信後は保存しません（<a href="/qr-order/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>）。</span></label>
+        <label id="age-box" class="age-box" hidden><input id="age-ok" type="checkbox"><span><strong class="law">20 歳未満の者の飲酒・喫煙は法律で禁止されています。20 歳未満の方には酒類・たばこを販売しません。</strong>年齢確認が必要な商品が含まれています。<strong>私は 20 歳以上です。</strong>お支払い後に店舗スタッフが年齢を確認します。確認できない場合は販売できません（代金は返金します）。</span></label>
+        <div id="turnstile"></div>
+        <div id="pay"></div>
+        <p id="agree" class="note agree" hidden>下の「支払う」ボタンを押すと、上記の内容でご注文が確定し、お支払いが行われます。押す前に内容をご確認ください。ボタンを押した時点で、<a href="/qr-order/legal/terms" target="_blank" rel="noopener">利用規約</a>と<a href="/qr-order/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>に同意したものとします。販売事業者・返品などの条件は<a href="/qr-order/legal/tokushoho" target="_blank" rel="noopener">特定商取引法に基づく表記</a>をご覧ください。</p>
+          <div id="geo-box" class="geo-box">
+        <p><strong>お支払いには、現在地（位置情報）の確認が必要です。</strong>店舗の外からの不正な注文を防ぐため、店舗の近くにいることを確認します。確認できない場合はお支払いいただけません。保存するのは店舗からの距離だけで、位置そのもの（緯度・経度）は保存しません（<a href="/qr-order/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>）。</p>
+        <p id="geo-state" class="geo-state" aria-live="polite">まだ確認していません。</p>
+        <button id="geo-check" type="button">現在地を確認する</button>
+      </div>
+      <button id="pay-button" class="primary wide" hidden>支払う</button>
+        <p id="pay-note" class="note" hidden></p>
+      </div>
+    </section>
+    <p class="note swipe-hint">右へフリックすると、スキャンに戻ります。</p>
+  </section>
+
+  <div id="dots" class="dots" aria-hidden="true" data-view="scan"><span></span><span></span></div>
+</main>
+<div id="toast" class="toast" role="status" aria-live="assertive" hidden><span id="toast-icon" class="toast-icon" aria-hidden="true"></span><span id="toast-text"></span></div>
+<div id="cart-bar" class="cart-bar" hidden>
+  <div><span id="cart-bar-count" class="cart-count">0</span> 点　<strong id="cart-bar-total"></strong></div>
+  <button id="cart-bar-go" class="primary">お支払いへ<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
+</div>
+<footer>
+  <a href="/qr-order/guide/customer">使い方</a>
+  <a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>
+  <a href="/qr-order/legal/terms">利用規約</a>
+  <a href="/qr-order/legal/privacy">プライバシーポリシー</a>
+</footer>
+</body>
+</html>

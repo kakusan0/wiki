@@ -1,0 +1,2 @@
+import { defineConfig } from 'vite';
+export default defineConfig({ root: 'src/web', base: './', build: { outDir: '../../dist', emptyOutDir: true } });

@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Yuji+Syuku&display=swap');
+
+:root {
+  --bg: #F6F1E7; --panel: #FFFFFF; --ink: #1F1A12; --sub: #5E5546; --line: #E2D8C4; --soft: #F3ECDD;
+  --accent: #2F5BD3; --danger: #C8402F; --gold: #E0A21B;
+  --board: #E6C38A; --board2: #D9AF6B; --grid: #5A3B16; --koma: #F2DDB0; --koma2: #E4C68C; --stand: #C99B5B;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15120D; --panel: #221D15; --ink: #F3EBDD; --sub: #BFB29C; --line: #3A3124; --soft: #2C251B;
+    --accent: #84A9FF; --danger: #FF8A78; --board: #B98F52; --board2: #A57B40; --stand: #7E5C30;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Zen Maru Gothic', system-ui, sans-serif; }
+button { font: inherit; color: inherit; }
+h1, h2 { margin: 0; }
+
+.btn { white-space: nowrap; color: var(--ink); border: 1.5px solid var(--line); background: var(--panel); border-radius: 12px; padding: 10px 16px; font-weight: 700; cursor: pointer; min-height: 44px; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; border-style: dashed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.big { width: 100%; font-size: 18px; padding: 14px; }
+.btn.sm { min-height: 34px; padding: 4px 10px; font-size: 13px; border-radius: 9px; }
+.btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+.panel h2 { font-size: 17px; font-weight: 900; margin-bottom: 8px; }
+.note { font-size: 13px; color: var(--sub); margin: 8px 0 0; line-height: 1.7; }
+.lead { color: var(--sub); line-height: 1.8; margin: 0; }
+
+.top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.top .link { margin-left: auto; color: var(--accent); font-size: 14px; }
+
+/* タイトル */
+.title-main { max-width: 640px; margin: 0 auto; padding: 24px 16px 56px; display: flex; flex-direction: column; gap: 14px; }
+.title-main h1 { font-family: 'Yuji Syuku', serif; font-size: 44px; font-weight: 400; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip-opt { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); border-radius: 99px; padding: 6px 12px; cursor: pointer; background: var(--panel); }
+.chip-opt:has(input:checked) { border-color: var(--accent); background: var(--soft); }
+.select { display: block; margin-top: 10px; }
+.select select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--panel); color: var(--ink); }
+.mode .btn.big { margin-top: 12px; }
+
+/* 対局画面 */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; } }
+.side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.status-text { font-size: 17px; font-weight: 900; margin: 0; }
+.status-text.over { color: var(--danger); }
+.message { margin: 8px 0 0; font-weight: 700; line-height: 1.6; }
+.kifu .moves { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+.kifu .moves li button { background: none; border: 0; padding: 3px 6px; border-radius: 6px; cursor: pointer; width: 100%; text-align: left; font-size: 13px; }
+.kifu .moves li.on button, .kifu .moves li button:hover { background: var(--soft); }
+
+/* 盤 */
+.board-area { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.board { background: linear-gradient(135deg, var(--board), var(--board2)); border-radius: 10px; padding: 8px 8px 10px; box-shadow: 0 6px 18px rgba(60,35,10,.25), inset 0 0 0 2px rgba(90,59,22,.4); }
+.files { display: grid; text-align: center; font-size: 12px; color: var(--grid); font-weight: 700; margin-right: 18px; }
+.board-row { display: flex; gap: 4px; }
+.grid { flex: 1; display: grid; border: 2px solid var(--grid); background: repeating-linear-gradient(90deg, transparent 0 2px, rgba(90,59,22,.06) 2px 4px); }
+.ranks { display: grid; font-size: 12px; color: var(--grid); font-weight: 700; align-items: center; width: 14px; }
+.cell { position: relative; border: .5px solid rgba(90,59,22,.7); background: transparent; padding: 0; display: grid; place-items: center; cursor: pointer; min-width: 0; min-height: 0; }
+.cell:disabled { cursor: default; }
+.cell.last { background: rgba(224,162,27,.35); }
+.cell.last-from { background: rgba(224,162,27,.15); }
+.cell.sel { background: rgba(47,91,211,.35); }
+.cell.target::after { content: ''; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(47,91,211,.55); }
+.cell.target.capture::after { width: 86%; height: 86%; background: none; border: 3px solid rgba(200,64,47,.75); }
+.cell.check { background: rgba(200,64,47,.45); }
+.piece { width: 92%; height: 92%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); pointer-events: none; }
+.piece .koma { fill: var(--koma); stroke: #6E4A1C; stroke-width: 2.5; }
+.piece .kanji { font-family: 'Yuji Syuku', 'Hiragino Mincho ProN', 'Yu Mincho', serif; font-size: 44px; fill: #1B1408; }
+.piece .kanji.promoted { fill: #C02A1A; }
+.size-5x5 .piece .kanji, .size-3x4 .piece .kanji { font-size: 48px; }
+
+/* 駒台 */
+.stand { background: var(--stand); border-radius: 10px; padding: 6px 10px; display: flex; align-items: center; gap: 10px; min-height: 58px; color: #FFF8EA; }
+.stand.turn { box-shadow: 0 0 0 3px var(--gold); }
+.stand .who { display: flex; align-items: center; gap: 6px; min-width: 88px; }
+.stand .clock { font-variant-numeric: tabular-nums; background: rgba(0,0,0,.25); border-radius: 6px; padding: 2px 6px; font-size: 13px; }
+.stand .pieces { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.stand .pieces small { opacity: .7; }
+.hand-piece { position: relative; width: 44px; height: 46px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 8px; }
+.hand-piece:disabled { cursor: default; }
+.hand-piece.sel { background: rgba(47,91,211,.45); }
+.hand-piece b { position: absolute; right: -2px; bottom: -2px; background: #1B1408; color: #fff; font-size: 11px; border-radius: 99px; padding: 0 5px; }
+.piece.small { width: 100%; height: 100%; }
+.turn-label { text-align: center; font-weight: 900; margin: 4px 0 0; }
+
+/* 成るか */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 10; }
+.modal-box { background: var(--panel); border-radius: 16px; padding: 18px 20px; box-shadow: 0 10px 30px rgba(0,0,0,.3); text-align: center; }
+.modal-box p { margin: 0; font-weight: 900; font-size: 18px; }
+
+/* 詰将棋 */
+.tsume-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.btn.tsume { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.btn.tsume.solved { border-color: #2FA35B; }
+.btn.tsume small { font-size: 11px; color: #2FA35B; }
+.desc { font-weight: 700; line-height: 1.7; }
+
+@media (max-width: 600px) {
+  .board { padding: 4px 4px 6px; }
+  .hand-piece { width: 36px; height: 38px; }
+  .stand { min-height: 48px; }
+}
+.rules .rule-list { margin: 0; padding-left: 20px; line-height: 1.9; color: var(--sub); }
+
+/* オンライン */
+.online-entry, .online-wait { max-width: 560px; margin: 0 auto; padding: 16px 16px 56px; display: flex; flex-direction: column; gap: 14px; }
+.online-wait { margin-top: 16px; text-align: center; }
+.input { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.input.code { letter-spacing: .3em; text-transform: uppercase; font-weight: 800; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub); margin-bottom: 10px; }
+.online-entry .panel > .btn { margin-top: 8px; width: 100%; }
+.room-code { font-size: 40px; font-weight: 900; letter-spacing: .25em; margin: 12px 0; font-variant-numeric: tabular-nums; }
+.online-wait .btns { justify-content: center; }
+.error { color: #c0392b; font-weight: 700; }
+.clock { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 800; padding: 1px 8px; border-radius: 8px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.stand.turn .clock { background: var(--accent); color: #fff; }
+
+/* 動画で保存 */
+.video-box { width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; text-align: left; display: flex; flex-direction: column; gap: 12px; }
+.video-box h2 { margin: 0; font-size: 20px; }
+.video-box h3 { margin: 10px 0 0; font-size: 14px; color: var(--sub); }
+.video-box p { font-weight: 400; font-size: 14px; }
+.video-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.video-opts { min-width: 0; }
+.video-preview { max-width: 240px; max-height: 320px; width: auto; height: auto; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.2); background: var(--soft); }
+.video-bar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.video-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.video-status:empty { display: none; }
+.video-box .btns { justify-content: flex-end; }
+.video-box a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+@media (max-width: 560px) {
+  .video-grid { grid-template-columns: 1fr; }
+  .video-preview { justify-self: center; max-height: 220px; }
+}

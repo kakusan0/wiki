@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qr-order",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "qr-order",
+      "database_id": "2a9289c4-0b95-42fe-afc5-49b1f82a12e9",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // ダッシュボードで設定した変数をデプロイ時に消さない
+  "keep_vars": true,
+  // 1時間ごと：未払い注文の整理、保存期間を過ぎたデータの削除
+  "triggers": { "crons": ["23 * * * *"] },
+  "observability": { "enabled": true }
+}

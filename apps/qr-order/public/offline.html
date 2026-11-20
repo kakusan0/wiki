@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オフラインです</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; text-align: center; font: 16px/1.7 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f4f5f2; color: #171916; }
+  @media (prefers-color-scheme: dark) { body { background: #101311; color: #eef0ea; } }
+  h1 { font-size: 1.3rem; }
+  button { font: inherit; font-weight: 700; padding: 12px 24px; border-radius: 12px; border: 0; background: #0a6b50; color: #fff; }
+</style>
+</head>
+<body>
+<div>
+  <h1>インターネットに接続できません</h1>
+  <p>ご注文とお支払いには通信が必要です。電波の良い場所で、もう一度お試しください。</p>
+  <p><button onclick="location.reload()">再読み込み</button></p>
+</div>
+</body>
+</html>

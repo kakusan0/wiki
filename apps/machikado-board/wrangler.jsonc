@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "machikado-board",
+  "compatibility_date": "2026-10-01",
+  // /api/* はオンライン対戦のサーバー（Worker）。ほかはビルドした画面をそのまま配信する
+  "main": "src/worker/index.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "RoomDO" },
+      { "name": "MATCHMAKER", "class_name": "MatchmakerDO" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO", "MatchmakerDO"] }],
+  // 同じ IP から部屋を作る・相手を探すのは 1 分に 20 回まで
+  "ratelimits": [{ "name": "API_LIMIT", "namespace_id": "4201", "simple": { "limit": 20, "period": 60 } }],
+  "vars": { "FAST": "0", "MAX_ROUNDS": "" },
+  "observability": { "enabled": true }
+}

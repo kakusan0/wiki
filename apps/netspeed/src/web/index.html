@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>回線速度の記録</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main id="app">
+  <section id="login" class="login" hidden>
+    <h1>回線速度の記録</h1>
+    <p class="muted">合言葉を入れてください。この端末では 30 日間、入ったままになります。</p>
+    <form id="loginForm">
+      <label for="pw">合言葉</label>
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <button type="submit">入る</button>
+      <p id="loginMsg" class="msg" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="dash" hidden>
+    <header class="top">
+      <h1>回線速度の記録</h1>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="集計する期間">
+          <button data-days="7">7日</button><button data-days="14" aria-pressed="true">14日</button><button data-days="30">30日</button><button data-days="90">90日</button>
+        </div>
+        <button id="logout" class="ghost">ログアウト</button>
+      </div>
+    </header>
+
+    <p id="status" class="status" role="status"></p>
+
+    <section class="hero" aria-label="速い時間帯">
+      <div class="tile big">
+        <span class="label">いちばん速い時間帯（下りの中央値）</span>
+        <b id="bestHour" class="value">—</b>
+        <span id="bestSub" class="sub"></span>
+      </div>
+      <div class="tile">
+        <span class="label">いちばん遅い時間帯</span>
+        <b id="worstHour" class="value">—</b>
+        <span id="worstSub" class="sub"></span>
+      </div>
+      <div class="tile">
+        <span class="label">いまの速さ（最新の測定）</span>
+        <b id="nowDown" class="value">—</b>
+        <span id="nowSub" class="sub"></span>
+      </div>
+    </section>
+
+    <section class="card" id="spotCard">
+      <div class="card-head">
+        <h2>この端末で測る（スマホ・Wi-Fi）</h2>
+      </div>
+      <form id="spotForm" class="spot-form">
+        <label for="place">測る場所</label>
+        <input id="place" list="placeList" maxlength="20" placeholder="例：リビング・寝室・台所" autocomplete="off">
+        <datalist id="placeList"></datalist>
+        <button type="submit" id="spotBtn">測る</button>
+      </form>
+      <p id="spotMsg" class="spot-msg" role="status" aria-live="polite">1 回で 30 MB ほど使います（Wi-Fi なら気にしなくて大丈夫です）。</p>
+      <div id="spotResult" class="spot-result" hidden></div>
+      <h3 class="sub-h">場所ごとの速さ（下りの中央値）</h3>
+      <div id="places" class="places"></div>
+      <details><summary>測った記録</summary><div id="spotList" class="table-wrap"></div></details>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>曜日 × 時刻</h2>
+        <div class="seg small" role="group" aria-label="表示する値">
+          <button data-metric="down" aria-pressed="true">下り</button><button data-metric="up">上り</button><button data-metric="ping">遅延</button>
+        </div>
+      </div>
+      <div id="heat" class="heat" aria-describedby="heatLegend"></div>
+      <div id="heatLegend" class="legend"></div>
+      <details><summary>表で見る</summary><div id="heatTable" class="table-wrap"></div></details>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <h2>速い時間帯 ベスト 3</h2>
+        <ol id="best" class="rank"></ol>
+      </div>
+      <div class="card">
+        <h2>遅い時間帯 ワースト 3</h2>
+        <ol id="worst" class="rank"></ol>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>時刻ごとの下りの速さ</h2>
+      <div id="profileLegend" class="legend inline"></div>
+      <div id="profile" class="chart"></div>
+    </section>
+
+    <section class="card">
+      <h2>直近 1 時間（毎分の測定）</h2>
+      <div id="recent" class="chart short"></div>
+    </section>
+
+    <p id="foot" class="muted small"></p>
+  </section>
+  <div id="tip" class="tip" role="tooltip" hidden></div>
+</main>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

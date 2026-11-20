@@ -1,0 +1,37 @@
+name: netspeed Windows
+# netspeed の自宅の PC 用のスクリプト（apps/netspeed/windows/）を、Windows PowerShell 5.1 で確かめる
+on:
+  push:
+    branches: [main]
+    paths: ['apps/netspeed/windows/**', '.github/workflows/netspeed-windows.yml']
+  pull_request:
+    paths: ['apps/netspeed/windows/**', '.github/workflows/netspeed-windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    defaults:
+      run:
+        working-directory: apps/netspeed
+    # 自宅の PC と同じ Windows PowerShell 5.1 で、本物の Cloudflare の速度測定を 1 回だけ試す（送信はしない）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 文法の確認（Windows PowerShell 5.1）
+        shell: powershell
+        run: |
+          foreach ($f in Get-ChildItem windows\*.ps1) {
+            $errs = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs) | Out-Null
+            if ($errs.Count) { $errs | ForEach-Object { Write-Error "$($f.Name): $($_.Message)" }; exit 1 }
+          }
+      # このステップの中身は BOM なしで実行されるので、日本語を書かない
+      - name: 1 回測る
+        shell: powershell
+        run: |
+          '{"endpoint":"https://example.invalid","token":"not-used-0123456789"}' | Set-Content windows\config.json
+          $out = powershell -NoProfile -ExecutionPolicy Bypass -File windows\collect.ps1 -NoSend
+          $out
+          $json = ($out | Select-Object -Last 1) | ConvertFrom-Json
+          if (-not ($json.down -gt 0)) { Write-Error 'download speed was not measured'; exit 1 }

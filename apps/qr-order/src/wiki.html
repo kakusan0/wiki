@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ページ一覧 | QR オーダー</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/qr-order/style.css">
+<link rel="stylesheet" href="/qr-order/wiki.css">
+<script src="/qr-order/theme.js"></script>
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/app-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<script src="/qr-order/pwa.js" defer></script>
+</head>
+<body>
+<header class="bar"><h1>ページ一覧</h1></header>
+<main class="wiki">
+  <p class="note">QR オーダーで開ける画面の一覧です。<code>&lt;店舗ID&gt;</code> や <code>&lt;注文ID&gt;</code> の部分は、店舗・注文ごとに変わります（いまの店舗 ID は <code>shop-001</code>）。</p>
+
+  <section>
+    <h2>公式サイト・案内</h2>
+    <table>
+      <thead><tr><th>パス</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><a href="/qr-order/">/</a></td><td>公式サイト（サービス紹介）</td></tr>
+        <tr><td><a href="/qr-order/wiki">/wiki</a></td><td>このページ（ページ一覧）。開くたびにパスキーでの本人確認が必要</td></tr>
+        <tr><td><a href="/qr-order/guide/">/guide/</a></td><td>使い方の目次</td></tr>
+        <tr><td><a href="/qr-order/guide/customer">/guide/customer</a></td><td>お客様向けの使い方</td></tr>
+        <tr><td><a href="/qr-order/legal/tokushoho">/legal/tokushoho</a></td><td>特定商取引法に基づく表記</td></tr>
+        <tr><td><a href="/qr-order/legal/terms">/legal/terms</a></td><td>利用規約</td></tr>
+        <tr><td><a href="/qr-order/legal/privacy">/legal/privacy</a></td><td>プライバシーポリシー</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>お客様の画面</h2>
+    <table>
+      <thead><tr><th>パス</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>/s/&lt;店舗ID&gt;</code><br><a href="/qr-order/s/shop-001">/s/shop-001</a></td><td>お店のページ（商品の読み取り・カート・支払い）。店頭の QR コードで開く画面</td></tr>
+        <tr><td><code>/contact/&lt;店舗ID&gt;?order=&lt;注文ID&gt;</code></td><td>その注文についての、店舗へのチャットでの問い合わせ。購入の証明の画面、または返品・交換の画面から開く</td></tr>
+        <tr><td><code>/order/&lt;注文ID&gt;</code></td><td>購入の証明（支払い完了の画面）。支払い後の画面や購入完了メールから開く</td></tr>
+        <tr><td><code>/return/&lt;注文ID&gt;</code></td><td>返品・交換の申し込み。購入完了メールや購入の証明の画面から開く</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>店舗スタッフの画面</h2>
+    <table>
+      <thead><tr><th>パス</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><a href="/qr-order/guide/staff">/guide/staff</a></td><td>店舗スタッフ向けの使い方。ログインが必要（未ログインならログイン画面へ移り、ログイン後にこのページを開く）</td></tr>
+        <tr><td><a href="/qr-order/staff">/staff</a></td><td>管理画面（注文・商品・返品・問い合わせ・店舗 QR・スタッフ・パスキー）。ログインが必要</td></tr>
+        <tr><td><a href="/qr-order/staff/login">/staff/login</a></td><td>ログイン（パスキー）</td></tr>
+        <tr><td><a href="/qr-order/staff/setup">/staff/setup</a></td><td>初回の設定（メールの確認コードとパスキーの登録）</td></tr>
+        <tr><td><a href="/qr-order/staff/display">/staff/display</a></td><td>店頭掲示用の QR 表示画面。ログインが必要</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>電子棚札（ST-GR29000）</h2>
+    <p class="note">OpenEPaperLink の基地局と、棚札の QR コードが使うアドレスです。設定の手順は docs/esl-setup.md、画像 URL の一覧は管理画面の「店舗 QR」にあります。</p>
+    <table>
+      <thead><tr><th>パス</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>/esl/&lt;商品ID&gt;.jpg</code><br><a href="/qr-order/esl/p-001.jpg">/esl/p-001.jpg</a></td><td>棚札に表示する画像（296×128、商品の QR・商品名・価格）。基地局の「7 - Image URL」に設定する</td></tr>
+        <tr><td><code>/p/&lt;商品ID&gt;</code><br><a href="/qr-order/p/p-001">/p/p-001</a></td><td>棚札の QR コードに入っている短いアドレス。開くと、その商品をカートに入れたお客様画面に移る</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>外部サービスからの通知を受け取る URL</h2>
+    <p class="note">ブラウザでは開けません。各サービスの管理画面に登録する URL です。</p>
+    <table>
+      <thead><tr><th>パス</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>/api/stripe/webhook</code></td><td>Stripe（決済）の通知</td></tr>
+        <tr><td><code>/api/line/webhook</code></td><td>LINE（問い合わせ）の通知</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<footer>
+  <a href="/qr-order/">公式サイト</a>
+  <a href="/qr-order/guide/">使い方</a>
+  <a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>
+  <a href="/qr-order/legal/terms">利用規約</a>
+  <a href="/qr-order/legal/privacy">プライバシーポリシー</a>
+</footer>
+</body>
+</html>

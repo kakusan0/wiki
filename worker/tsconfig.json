@@ -1,0 +1,9 @@
+// 入口の道具（prefix.ts）の型の検査。index.ts は作品の型と混ざるので、wrangler のビルドで確かめる
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "lib": ["ES2022"], "types": ["@cloudflare/workers-types", "node"],
+    "strict": true, "noEmit": true, "skipLibCheck": true, "allowImportingTsExtensions": true
+  },
+  "include": ["prefix.ts", "prefix.test.ts"]
+}

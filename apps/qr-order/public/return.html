@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>返品・交換のお申し込み</title>
+<link rel="stylesheet" href="/qr-order/style.css">
+<script src="/qr-order/theme.js"></script>
+<meta name="theme-color" content="#0a6b50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101311" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/qr-order/icons/app-192.png">
+<link rel="apple-touch-icon" href="/qr-order/icons/apple-touch-icon.png">
+<script src="/qr-order/geo.js" defer></script>
+<script src="/qr-order/return.js" defer></script>
+</head>
+<body class="return-page">
+<header class="shop-head chat-head">
+  <a id="back" class="icon-btn" href="/qr-order/" aria-label="購入の証明に戻る"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></a>
+  <div class="shop-title"><h1 id="store-name">返品・交換</h1><span id="sub" class="hello">商品の不良・誤りのお申し込み</span></div>
+</header>
+<main>
+  <p id="error" class="error" role="alert" hidden></p>
+
+  <section id="summary" class="card" hidden>
+    <div class="ret-sum"><span class="note">対象の注文</span><strong id="sum-no"></strong></div>
+    <div class="ret-sum"><span class="note">合計（税込）</span><strong id="sum-total"></strong></div>
+    <div class="ret-sum"><span class="note">申込期限</span><strong id="sum-deadline"></strong></div>
+  </section>
+
+  <section id="history" hidden>
+    <h2>お申し込みの状況</h2>
+    <div id="history-list"></div>
+  </section>
+
+  <p id="closed" class="gate" hidden></p>
+
+  <form id="form" class="ret-form" hidden>
+    <h2>返品・交換のお申し込み</h2>
+    <p class="note">商品の不良・破損、注文と違う商品、期限切れ・傷みなどが対象です。お客様のご都合による返品はお受けできません。内容を確認のうえ、店舗スタッフがご連絡します（この画面に結果が表示されます）。</p>
+    <p class="req-legend"><span class="req">必須</span> は入力が必要な項目、<span class="opt">任意</span> は省略できる項目です。</p>
+
+    <fieldset class="card">
+      <legend>1. 対象の商品 <span class="req">必須</span></legend>
+      <p class="note">返品・交換したい商品にチェックを入れ、数量を選んでください（1 つ以上）。</p>
+      <div id="items"></div>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>2. 理由 <span class="req">必須</span></legend>
+      <label class="radio"><input type="radio" name="reason" value="defect" checked> 商品の不良・破損・汚れ</label>
+      <label class="radio"><input type="radio" name="reason" value="wrong_item"> 注文と違う商品だった</label>
+      <label class="radio"><input type="radio" name="reason" value="expired"> 期限切れ・傷み・異物</label>
+      <label class="radio"><input type="radio" name="reason" value="other"> その他</label>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>3. 状況の説明 <span class="req">必須</span></legend>
+      <label for="detail" class="note">いつ、どのような状態でしたか（5〜1000 文字）</label>
+      <textarea id="detail" rows="4" maxlength="1000" required placeholder="例: 開封したところ、容器にひびが入っていて中身が漏れていました。"></textarea>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>4. 商品の写真 <span class="req">必須</span></legend>
+      <p class="note"><strong>2〜5 枚</strong>。「商品の全体」は必ず撮り、ほかの欄から <strong>1 枚以上</strong>追加してください。</p>
+      <p id="photo-tips" class="note"></p>
+      <div id="slots" class="slots"></div>
+      <p class="note">写真は、商品だけが写るように撮ってください。人の顔・住所・カード番号などが写らないようご注意ください。位置情報などの撮影データは、送信前にこの端末で取り除きます。</p>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>5. ご希望の対応 <span class="req">必須</span></legend>
+      <label class="radio"><input type="radio" name="wanted" value="refund" checked> 返金</label>
+      <label class="radio"><input type="radio" name="wanted" value="exchange"> 同じ商品との交換</label>
+      <p class="note">最終的な対応は、確認のうえ店舗が決めます。</p>
+    </fieldset>
+
+    <fieldset class="card">
+      <legend>6. ご確認 <span class="req">必須</span></legend>
+      <p class="note">「現在地を確認する」と、下のチェックの両方が必要です。</p>
+      <div id="geo-box" class="geo-box">
+        <p><strong>お申し込みには、現在地（位置情報）の確認が必要です。</strong>不正なお申し込みを防ぐため、お申し込みの時点で店舗からどのくらい離れているかを記録します（場所によって申し込めなくなることはありません）。保存するのは店舗からの距離だけで、位置そのもの（緯度・経度）は保存しません（<a href="/qr-order/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>）。</p>
+        <p id="geo-state" class="geo-state" aria-live="polite">まだ確認していません。</p>
+        <button id="geo-check" type="button">現在地を確認する</button>
+      </div>
+      <label class="radio check"><input type="checkbox" id="agree"> <span>商品は捨てたり使い切ったりせず、保管します。承認されたら、商品と購入の証明の画面を店頭にお持ちします。</span></label>
+    </fieldset>
+
+    <button id="submit" class="primary wide" type="submit">この内容で申し込む</button>
+    <p class="note">申し込みの内容（説明・写真）は、対応のために店舗スタッフが確認します。完了または却下から 90 日後に消去します（<a href="/qr-order/legal/privacy" target="_blank" rel="noopener">プライバシーポリシー</a>）。</p>
+  </form>
+
+  <p><a id="contact-link" class="button-link" href="#">店舗にチャットで問い合わせる</a></p>
+</main>
+
+<dialog id="cam-dialog" class="cam-dialog" aria-labelledby="cam-title">
+  <h3 id="cam-title">写真を撮る</h3>
+  <div class="cam-frame"><video id="cam-video" playsinline muted></video></div>
+  <p id="cam-kind" class="note"></p>
+  <div class="cam-actions">
+    <button id="cam-cancel" type="button" class="ghost">やめる</button>
+    <button id="cam-shot" type="button" class="primary cam-shot" aria-label="撮影する"><span></span></button>
+    <button id="cam-switch" type="button" aria-label="カメラを切り替える（前面 / 背面）" hidden><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 0 1 14-3l2 2"/><path d="M20 4v4h-4"/><path d="M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M4 20v-4h4"/></svg></button>
+  </div>
+</dialog>
+<footer>
+  <a href="/qr-order/guide/customer">使い方</a>
+  <a href="/qr-order/legal/tokushoho">特定商取引法に基づく表記</a>
+  <a href="/qr-order/legal/terms">利用規約</a>
+  <a href="/qr-order/legal/privacy">プライバシーポリシー</a>
+</footer>
+</body>
+</html>

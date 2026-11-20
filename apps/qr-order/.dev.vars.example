@@ -1,0 +1,6 @@
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+OWNER_EMAIL=owner@example.com
+RESEND_API_KEY=re_xxx
+MAIL_FROM=店舗管理 <noreply@example.com>

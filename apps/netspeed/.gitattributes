@@ -1,0 +1,2 @@
+# Windows PowerShell 5.1 は BOM 付き UTF-8・CRLF でないと日本語を読みまちがえるので、そのまま保存する
+*.ps1 -text

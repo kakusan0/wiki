@@ -1,9 +1,40 @@
 {
-  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "wiki",
   "compatibility_date": "2026-10-01",
-  // デプロイの前に、作品のデータからページを作る（node だけで動く）
+  // デプロイの前に、全作品と作品 wiki をビルドして dist を作る
   "build": { "command": "npm run build" },
-  // 画面だけ（サーバーの処理はない）。/wiki/ に一覧、/wiki/<作品>/ に作品のページ
-  "assets": { "directory": "./dist", "not_found_handling": "404-page" }
+  // 入口の Worker：/<作品>/… を見て、作品の Worker か画面のファイルに渡す
+  "main": "worker/index.ts",
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page", "run_worker_first": true },
+  "d1_databases": [
+    // それぞれの作品のときに作った D1 を、そのまま付け直す（記録は残る）
+    { "binding": "NETSPEED_DB", "database_name": "netspeed", "database_id": "aa28f073-5544-426d-a3be-f9ecc2663420", "migrations_dir": "apps/netspeed/migrations" },
+    { "binding": "QR_DB", "database_name": "qr-order", "database_id": "2a9289c4-0b95-42fe-afc5-49b1f82a12e9", "migrations_dir": "apps/qr-order/migrations" }
+    // truck の荷物の記録（TRUCK_DB）は、D1 を作ったら足す。ない間は「仮のコンテナ」で動く
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "SHOGI_ROOM", "class_name": "ShogiRoom" },
+      { "name": "HANAFUDA_ROOM", "class_name": "HanafudaRoom" },
+      { "name": "BOARD_ROOM", "class_name": "BoardRoom" },
+      { "name": "BOARD_MATCH", "class_name": "BoardMatchmaker" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShogiRoom", "HanafudaRoom", "BoardRoom", "BoardMatchmaker"] }],
+  "ratelimits": [
+    { "name": "SHOGI_LIMIT", "namespace_id": "4301", "simple": { "limit": 20, "period": 60 } },
+    { "name": "HANAFUDA_LIMIT", "namespace_id": "4401", "simple": { "limit": 20, "period": 60 } },
+    { "name": "BOARD_LIMIT", "namespace_id": "4201", "simple": { "limit": 20, "period": 60 } }
+  ],
+  "vars": {
+    "NETSPEED_TZ_OFFSET_MIN": "540", // 日本時間（UTC+9）で集計する
+    "NETSPEED_RETAIN_DAYS": "90",    // 1 分ごとの記録を残す日数
+    "BOARD_FAST": "0",               // 商店街ボード：試験用の早送り（ふだんは 0）
+    "BOARD_MAX_ROUNDS": ""
+  },
+  // 定期の仕事：netspeed の古い記録の掃除（日本時間 3:17）、QR オーダーの整理（毎時 23 分）
+  "triggers": { "crons": ["17 18 * * *", "23 * * * *"] },
+  "keep_vars": true,
+  "observability": { "enabled": true }
 }
