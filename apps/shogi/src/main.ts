@@ -8,6 +8,8 @@ import { mateFirstMoves, solve } from './engine/tsume';
 import { askMove, cancelThinking } from './ui/ai-client';
 import { MARK_NAMES, MARK_SIGNS, isMateScore, reviewMoves, scoreLabel, scoreText, senteScore, type MoveReview, type PlyEval } from './engine/analysis';
 import { startAnalysis, type AnalysisJob } from './ui/analysis-client';
+import { fromUsi } from './engine/usi';
+import { LISHOGI, RateLimited, clockText, fetchGame, gameIdOf, listLiveGames, playerLabel, startedText, statusText, type LishogiGame } from './ui/lishogi';
 import { renderBoard, targetsOf, type BoardView } from './ui/board';
 import { h } from './ui/dom';
 import { renderOnlineEntry, onlineSession, type OnlineSession } from './ui/online';
@@ -25,7 +27,7 @@ interface Settings { rules: Ruleset['id']; handicap: string; level: Level; side:
 let settings: Settings = { rules: 'standard', handicap: 'even', level: 'beginner', side: 'sente', autoFlip: false, ...(load<Settings>(SETTINGS_KEY) ?? {}) };
 
 // ---------- 対局 ----------
-type Mode = 'cpu' | 'local' | 'online' | 'tsume';
+type Mode = 'cpu' | 'local' | 'online' | 'tsume' | 'watch';
 interface Session {
   mode: Mode;
   game: Game;
@@ -41,11 +43,14 @@ interface Session {
   hint?: Move | null;
   names: [string, string];
   analysis?: Analysis;
+  watch?: Watch;
 }
+// Lishogi の対局を観戦しているとき
+interface Watch { id: string; info: LishogiGame; error: string; timer: number | null; shown: number }
 // 解析の結果。moves は解析を始めたときの棋譜（evals[k] は k 手目のあとの局面）
 interface Analysis { moves: Move[]; evals: PlyEval[]; job: AnalysisJob | null }
 let session: Session | null = null;
-let screen: 'title' | 'game' | 'tsume-list' | 'practice' | 'online' = 'title';
+let screen: 'title' | 'game' | 'tsume-list' | 'practice' | 'online' | 'watch-list' = 'title';
 
 function saveGame() {
   if (!session || (session.mode !== 'cpu' && session.mode !== 'local')) return;
@@ -61,6 +66,7 @@ function stopAnalysis(s: Session | null) {
 function startGame(mode: Mode, rules: Ruleset, startSfen: string, opts: Partial<Session> = {}) {
   cancelThinking();
   stopAnalysis(session);
+  stopWatch(session);
   const game = new Game(rules, startSfen);
   session = {
     mode, game, mySide: null, level: settings.level, flipped: false, autoFlip: false, selected: null, view: null,
@@ -92,6 +98,7 @@ function canHumanAct(s: Session): boolean {
   if (s.game.result || s.thinking || s.view != null) return false;
   if (s.mode === 'cpu' || s.mode === 'online') return s.game.pos.side === s.mySide;
   if (s.mode === 'tsume') return s.game.pos.side === 0;
+  if (s.mode === 'watch') return false;
   return true;
 }
 
@@ -186,6 +193,7 @@ function render() {
   if (screen === 'tsume-list') return renderTsumeList();
   if (screen === 'practice') return renderPractice();
   if (screen === 'online' && !session) return app.replaceChildren(renderOnlineEntry(onlineHandlers()));
+  if (screen === 'watch-list' && !session) return renderWatchList();
   if (session) return renderGame(session);
   screen = 'title';
   renderTitle();
@@ -193,7 +201,7 @@ function render() {
 
 function header(title: string, back = true) {
   return h('header', { class: 'top' },
-    back ? h('button', { class: 'btn sm', onclick: () => { cancelThinking(); stopAnalysis(session); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
+    back ? h('button', { class: 'btn sm', onclick: () => { cancelThinking(); stopAnalysis(session); stopWatch(session); if (location.search.includes('lishogi=')) history.replaceState(null, '', location.pathname); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
     h('b', {}, title),
     h('a', { class: 'link', href: '/rules.html', target: '_blank', rel: 'noopener' }, '遊び方'));
 }
@@ -244,6 +252,12 @@ function renderTitle() {
           h('button', { class: 'btn', onclick: () => { screen = 'online'; session = null; render(); } }, 'オンラインで対戦（合言葉）'))),
 
       h('section', { class: 'panel mode' },
+        h('h2', {}, '世界の対局を観戦'),
+        h('p', { class: 'note' }, 'Lishogi（世界の人が遊ぶ無料の将棋サイト）でいま指されている対局を、形勢を見ながら観戦します。'),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn primary', onclick: () => { screen = 'watch-list'; session = null; render(); } }, '対局中の対局を見る'))),
+
+      h('section', { class: 'panel mode' },
         h('h2', {}, '練習'),
         h('div', { class: 'btns' },
           h('button', { class: 'btn primary', onclick: () => { screen = 'tsume-list'; render(); } }, `詰将棋（${TSUME.length} 問）`),
@@ -272,10 +286,12 @@ function renderGame(s: Session) {
   const canAct = canHumanAct(s);
   const legal = canAct ? pos.legalMoves() : [];
   const turnName = s.names[pos.side];
-  const status = g.result ? resultText(g.result, g, s)
+  const live = s.mode === 'watch' && s.watch?.info.status === 'started';
+  const status = s.mode === 'watch' && !live ? statusText(s.watch!.info)
+    : g.result ? resultText(g.result, g, s)
     : s.thinking ? 'コンピューターが考えています…'
     : s.mode === 'tsume' ? (pos.side === 0 ? `あなたの番（攻め方）・あと ${s.tsume!.plies - g.record.length} 手` : '受け方が考えています…')
-    : `${pos.side === 0 ? '▲' : '△'}${turnName}の番${pos.inCheck() ? '・王手！' : ''}`;
+    : `${live ? '対局中・' : ''}${pos.side === 0 ? '▲' : '△'}${turnName}の番${pos.inCheck() ? '・王手！' : ''}`;
   const view: BoardView = {
     pos, flipped: s.flipped, selected: s.selected, targets: canAct ? targetsOf(legal, s.selected) : new Set(),
     last: viewGame.record.at(-1)?.move ?? null, canAct, onSquare, onHand, names: s.names,
@@ -285,17 +301,19 @@ function renderGame(s: Session) {
   if (s.hint != null) view.targets = new Set([mTo(s.hint)]);
   // 解析の最善手を盤に光らせる（指せないときだけ。過去の局面や終局後）
   const shown = s.view ?? g.record.length;
-  const best = !canAct ? s.analysis?.evals[shown]?.best ?? null : null;
+  // 観戦中（対局が続いている間）は、対局している人の助けにならないよう最善手を出さない
+  const best = !canAct && !live ? s.analysis?.evals[shown]?.best ?? null : null;
   if (best != null && s.analysis && viewGame.pos.isLegal(best)) {
     view.targets = new Set([mTo(best)]);
     view.selected = isDrop(best) ? { drop: mDrop(best) } : { from: mFrom(best) };
   }
-  const modeName = s.mode === 'cpu' ? `コンピューター対戦（${LEVEL_NAMES[s.level]}）` : s.mode === 'local' ? '二人で対戦' : s.mode === 'online' ? 'オンライン対戦' : s.tsume!.title;
+  const modeName = s.mode === 'cpu' ? `コンピューター対戦（${LEVEL_NAMES[s.level]}）` : s.mode === 'local' ? '二人で対戦' : s.mode === 'online' ? 'オンライン対戦' : s.mode === 'watch' ? 'Lishogi の対局を観戦' : s.tsume!.title;
   const undoN = s.mode === 'cpu' ? (g.pos.side === s.mySide ? 2 : 1) : 1;
   const side = h('aside', { class: 'side' },
     h('section', { class: 'panel status' },
       h('p', { class: `status-text${g.result ? ' over' : ''}` }, status),
       s.message ? h('p', { class: 'message' }, s.message) : null,
+      s.mode === 'watch' ? renderWatchInfo(s) : null,
       h('div', { class: 'btns' },
         s.mode === 'cpu' || s.mode === 'local' ? h('button', { class: 'btn', disabled: !g.record.length || s.mode === 'cpu' && g.record.length < undoN, onclick: () => {
           cancelThinking(); s.thinking = false; g.undo(Math.min(undoN, g.record.length)); s.view = null; s.selected = null; if (s.mode === 'local' && s.autoFlip) s.flipped = g.pos.side === 1; saveGame(); render(); void cpuMove();
@@ -310,7 +328,7 @@ function renderGame(s: Session) {
           if (s.mode === 'online') { onlineGame?.declare(); return; }
           g.declare(); saveGame(); render();
         } }, '入玉宣言') : null,
-        !g.result && s.mode !== 'tsume' ? h('button', { class: 'btn danger', onclick: () => {
+        !g.result && s.mode !== 'tsume' && s.mode !== 'watch' ? h('button', { class: 'btn danger', onclick: () => {
           if (!confirm('投了しますか？')) return;
           if (s.mode === 'online') { onlineGame?.resign(); return; }
           g.resign(s.mySide ?? g.pos.side); cancelThinking(); s.thinking = false; saveGame(); render();
@@ -323,6 +341,9 @@ function renderGame(s: Session) {
   app.replaceChildren(h('div', { class: 'game' }, header(modeName), h('main', { class: 'layout' }, h('div', { class: 'main-col' }, renderBoard(view)), side)));
   const list = document.querySelector('.kifu .moves');
   if (list && scroll != null) list.scrollTop = scroll;
+  // 観戦中に新しい手が来たら、最新の局面を見ているときは棋譜の一覧のいちばん下を見せる
+  if (list && s.watch && s.view == null && g.record.length !== s.watch.shown) list.scrollTop = list.scrollHeight;
+  if (s.watch) s.watch.shown = g.record.length;
 }
 
 function reviews(s: Session): MoveReview[] {
@@ -363,6 +384,26 @@ function renderKifu(s: Session): HTMLElement {
 // 1 局面に使う時間（ミリ秒）。小さい盤は早く深く読めるので短く
 const analysisMs = (g: Game) => (g.rules.id === 'standard' ? 400 : 200);
 const canAnalyze = (s: Session) => s.mode !== 'tsume' && s.game.record.length > 0 && (s.mode !== 'online' || !!s.game.result);
+const watchLive = (s: Session) => s.mode === 'watch' && s.watch?.info.status === 'started';
+
+// 観戦中は、手が増えるたびに増えたぶんだけ解析する（自動）
+function followAnalysis(s: Session) {
+  if (s.mode !== 'watch' || s.analysis?.job) return;
+  const g = s.game;
+  const a: Analysis = s.analysis ?? { moves: [], evals: [], job: null };
+  let from = 0;
+  while (a.evals[from]) from++;
+  if (from > g.record.length) return;
+  a.moves = g.moves;
+  s.analysis = a;
+  a.job = startAnalysis(g.startSfen, g.rules.id, a.moves, analysisMs(g), (k, ev) => {
+    a.evals[k] = ev;
+    if (session === s && s.analysis === a) render();
+  }, () => {
+    a.job = null;
+    if (session === s && s.analysis === a) { render(); followAnalysis(s); }
+  }, from);
+}
 
 function runAnalysis(s: Session) {
   stopAnalysis(s);
@@ -436,13 +477,15 @@ function renderAnalysis(s: Session): HTMLElement | null {
   const running = !!a?.job;
   const stale = !!a && !running && a.moves.length < g.record.length;
   const secs = Math.ceil(((g.record.length + 1) * analysisMs(g)) / 1000);
-  const head = h('div', { class: 'btns' },
+  const auto = s.mode === 'watch';
+  const head = auto ? h('p', { class: 'note', role: 'status' }, running ? `形勢を読んでいます… ${doneN}/${g.record.length + 1} 局面` : '新しい手が指されると、自動で形勢を読みます。')
+    : h('div', { class: 'btns' },
     running ? h('button', { class: 'btn sm', onclick: () => { stopAnalysis(s); render(); } }, '解析をやめる')
       : canAnalyze(s) && (!a || stale || doneN < total) ? h('button', { class: 'btn sm primary', id: 'analyze', onclick: () => runAnalysis(s) }, a ? 'もう一度解析する' : `解析する（約 ${secs} 秒）`) : null,
     running ? h('span', { class: 'note', role: 'status' }, `解析中… ${doneN}/${total} 局面`) : null);
   if (!a) {
     return h('section', { class: 'panel analysis' }, h('h2', {}, '解析'),
-      h('p', { class: 'note' }, 'コンピューターが一局をふり返り、局面ごとの形勢（評価値）と最善手、悪手・疑問手を調べます。'), head);
+      h('p', { class: 'note' }, auto ? '形勢を読む準備をしています。' : 'コンピューターが一局をふり返り、局面ごとの形勢（評価値）と最善手、悪手・疑問手を調べます。'), head);
   }
   const startSide = g.startSfen.split(/\s+/)[1] === 'w' ? 1 : 0;
   const rv = reviews(s);
@@ -451,11 +494,13 @@ function renderAnalysis(s: Session): HTMLElement | null {
   const v = e ? senteScore(e, ((startSide + shown) % 2) as 0 | 1) : null;
   const r = shown >= 1 ? rv[shown - 1] : undefined;
   const count = (side: 0 | 1, m: MoveReview['mark']) => rv.filter((x) => x.side === side && x.mark === m).length;
+  const hideBest = watchLive(s);
   const here = [
     v != null ? h('p', { class: 'eval-now' }, h('b', {}, `評価値 ${scoreText(v)}`), `（${scoreLabel(v)}）`) : shown <= a.moves.length ? h('p', { class: 'note' }, 'この局面はまだ解析していません') : null,
     r && g.record[shown - 1] ? h('p', { class: `review mark-${r.mark}` }, `${shown}. ${g.record[shown - 1].name}：`,
-      r.mark === 'best' ? '最善手' : r.mark === 'good' ? `よい手${r.bestName ? `（最善は ${r.bestName}）` : ''}` : `${MARK_NAMES[r.mark]}。最善は ${r.bestName ?? '—'}（${Math.round(r.loss)} 点の損）`) : null,
-    e?.bestName ? h('p', { class: 'note' }, `この局面の最善手：${e.bestName}${!canHumanAct(s) ? '（盤で光っている手）' : ''}`) : null,
+      r.mark === 'best' ? '最善手' : r.mark === 'good' ? `よい手${r.bestName && !hideBest ? `（最善は ${r.bestName}）` : ''}` : `${MARK_NAMES[r.mark]}${hideBest ? '' : `。最善は ${r.bestName ?? '—'}`}（${Math.round(r.loss)} 点の損）`) : null,
+    hideBest ? h('p', { class: 'note' }, '対局が続いている間は、最善手を出しません（対局している人の助けにならないように）。終局すると出ます。') : null,
+    e?.bestName && !hideBest ? h('p', { class: 'note' }, `この局面の最善手：${e.bestName}${!canHumanAct(s) ? '（盤で光っている手）' : ''}`) : null,
   ];
   return h('section', { class: 'panel analysis' },
     h('h2', {}, '解析'),
@@ -467,6 +512,142 @@ function renderAnalysis(s: Session): HTMLElement | null {
       h('tbody', {}, ([0, 1] as const).map((sd) => h('tr', {}, h('th', {}, `${sd === 0 ? '▲' : '△'}${s.names[sd]}`),
         h('td', {}, String(count(sd, 'dubious'))), h('td', {}, String(count(sd, 'mistake'))), h('td', {}, String(count(sd, 'blunder'))))))) : null,
     head);
+}
+
+// ---------- Lishogi の観戦 ----------
+const WATCH_MS = 4000; // 対局中の手を読みにいく間隔
+let watchList: { games: LishogiGame[] | null; error: string; loading: boolean } = { games: null, error: '', loading: false };
+
+function stopWatch(s: Session | null) {
+  if (s?.watch?.timer != null) { clearTimeout(s.watch.timer); s.watch.timer = null; }
+}
+
+const lishogiStart = (info: LishogiGame) => info.initialSfen ?? RULESETS.standard.start;
+
+// Lishogi の手（USI）を盤に足す。読めない手があれば、そこまでにする
+function applyMoves(g: Game, usis: string[], from: number): string {
+  for (let i = from; i < usis.length; i++) {
+    if (g.result) return '';
+    const m = fromUsi(g.pos, usis[i]);
+    if (m == null) return `${i + 1} 手目（${usis[i]}）が読めませんでした`;
+    g.play(m);
+  }
+  return '';
+}
+
+async function startWatch(id: string) {
+  stopAnalysis(session); stopWatch(session); cancelThinking();
+  watchList.error = ''; watchList.loading = true; render();
+  let info: LishogiGame;
+  try { info = await fetchGame(id); } catch (e) {
+    watchList.loading = false; watchList.error = e instanceof RateLimited ? 'Lishogi が混んでいます。1 分ほど待ってからもう一度お試しください。' : (e as Error).message; render(); return;
+  }
+  watchList.loading = false;
+  if (info.variant !== 'standard') { watchList.error = 'この対局は本将棋ではないので見られません（Lishogi の変わり将棋）'; render(); return; }
+  let game: Game;
+  try { game = new Game(RULESETS.standard, lishogiStart(info)); } catch { watchList.error = '対局のはじめの局面が読めませんでした'; render(); return; }
+  const error = applyMoves(game, info.moves, 0);
+  const s: Session = {
+    mode: 'watch', game, mySide: null, level: settings.level, flipped: false, autoFlip: false, selected: null, view: null, thinking: false,
+    message: '', names: [playerLabel(info.players.sente), playerLabel(info.players.gote)], watch: { id: info.id, info, error, timer: null, shown: 0 },
+  };
+  session = s; screen = 'game';
+  history.replaceState(null, '', `?lishogi=${info.id}`);
+  render();
+  followAnalysis(s);
+  scheduleWatch(s, WATCH_MS);
+}
+
+function scheduleWatch(s: Session, ms: number) {
+  const w = s.watch!;
+  if (w.info.status !== 'started') return;
+  w.timer = window.setTimeout(() => void pollWatch(s), ms);
+}
+
+async function pollWatch(s: Session) {
+  const w = s.watch!;
+  w.timer = null;
+  if (session !== s) return;
+  if (document.hidden) return scheduleWatch(s, WATCH_MS); // 見ていない間は読みにいかない
+  let info: LishogiGame;
+  try { info = await fetchGame(w.id); } catch (e) {
+    if (session !== s) return;
+    const limited = e instanceof RateLimited;
+    w.error = limited ? 'Lishogi が混んでいるので、1 分待ってから読み直します' : `読み直せませんでした（${(e as Error).message}）。少しして読み直します`;
+    render();
+    return scheduleWatch(s, limited ? 60_000 : WATCH_MS * 3);
+  }
+  if (session !== s) return;
+  const g = s.game;
+  const same = g.record.length <= info.moves.length && w.info.moves.slice(0, g.record.length).every((u, i) => info.moves[i] === u);
+  w.error = '';
+  if (same) {
+    if (info.moves.length > g.record.length) {
+      w.error = applyMoves(g, info.moves, g.record.length);
+      if (s.view === g.record.length) s.view = null;
+    }
+  } else {
+    // 手が入れ替わった（めったにない）：はじめから並べ直す
+    stopAnalysis(s); s.analysis = undefined; s.view = null;
+    s.game = new Game(RULESETS.standard, lishogiStart(info));
+    w.error = applyMoves(s.game, info.moves, 0);
+  }
+  w.info = info;
+  render();
+  followAnalysis(s);
+  scheduleWatch(s, WATCH_MS);
+}
+
+function renderWatchInfo(s: Session): HTMLElement {
+  const w = s.watch!;
+  const i = w.info;
+  return h('div', { class: 'watch-info' },
+    h('p', { class: 'note' }, [i.rated ? 'レーティング戦' : '練習対局', clockText(i)].filter(Boolean).join('・')),
+    i.status === 'started' ? h('p', { class: 'live' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), `対局中（${WATCH_MS / 1000} 秒ごとに新しい手を読みます）`) : null,
+    w.error ? h('p', { class: 'message' }, w.error) : null,
+    h('p', { class: 'note' }, h('a', { href: `${LISHOGI}/${i.id}`, target: '_blank', rel: 'noopener' }, 'Lishogi で開く'), '・対局のデータ：Lishogi（lishogi.org）'));
+}
+
+async function loadWatchList() {
+  watchList = { ...watchList, loading: true, error: '' };
+  render();
+  try { watchList.games = await listLiveGames(); } catch (e) {
+    watchList.error = e instanceof RateLimited ? 'Lishogi が混んでいます。1 分ほど待ってからもう一度お試しください。' : `一覧を読めませんでした（${(e as Error).message}）`;
+  }
+  watchList.loading = false;
+  if (screen === 'watch-list') render();
+}
+
+function renderWatchList() {
+  if (!watchList.games && !watchList.loading && !watchList.error) { void loadWatchList(); return; }
+  const input = h('input', { type: 'text', class: 'text', placeholder: 'https://lishogi.org/xxxxxxxx', 'aria-label': 'Lishogi の対局の URL か ID', autocomplete: 'off', enterkeyhint: 'go' });
+  const open = () => {
+    const id = gameIdOf(input.value);
+    if (!id) { watchList.error = 'Lishogi の対局の URL（例 https://lishogi.org/AbCd1234）か、8 文字の ID を入れてください'; render(); return; }
+    void startWatch(id);
+  };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
+  const games = watchList.games ?? [];
+  app.replaceChildren(h('div', {},
+    header('世界の対局を観戦'),
+    h('main', { class: 'title-main' },
+      h('p', { class: 'lead' }, 'Lishogi（世界の人が遊ぶ無料でオープンソースの将棋サイト）で、いま指されている本将棋の対局です。選ぶと盤に並べ、新しい手が指されるたびに形勢を読みます。'),
+      watchList.error ? h('p', { class: 'message', role: 'alert' }, watchList.error) : null,
+      h('section', { class: 'panel' },
+        h('h2', {}, 'いま注目の対局'),
+        watchList.loading && !games.length ? h('p', { class: 'note', role: 'status' }, '読み込んでいます…') : null,
+        !watchList.loading && watchList.games && !games.length ? h('p', { class: 'note' }, 'いま対局中の注目の対局はありません。少ししてから「新しくする」を押してください。') : null,
+        h('ul', { class: 'watch-list' }, games.map((g) => h('li', {},
+          h('button', { class: 'btn watch-game', onclick: () => void startWatch(g.id) },
+            h('span', { class: 'vs' }, `▲${playerLabel(g.players.sente)}`, h('small', {}, ' 対 '), `△${playerLabel(g.players.gote)}`),
+            h('small', {}, [startedText(g), clockText(g), g.rated ? 'レーティング戦' : ''].filter(Boolean).join('・')))))),
+        h('div', { class: 'btns' }, h('button', { class: 'btn sm', disabled: watchList.loading, onclick: () => void loadWatchList() }, watchList.loading ? '読み込み中…' : '新しくする')),
+        h('p', { class: 'note' }, '一覧は少し前の様子です。開くと最新の手まで並べます。')),
+      h('section', { class: 'panel' },
+        h('h2', {}, 'URL で開く'),
+        h('p', { class: 'note' }, 'Lishogi で見つけた対局の URL を貼り付けます。終わった対局も開けます（解析も使えます）。'),
+        h('div', { class: 'row' }, input, h('button', { class: 'btn primary', disabled: watchList.loading, onclick: open }, '観戦する'))),
+      h('p', { class: 'note' }, '対局のデータは Lishogi（lishogi.org）の公開 API から、この端末が直接読み込みます。対局が続いている間は、最善手を出しません。'))));
 }
 
 // ---------- 詰将棋の一覧 ----------
@@ -561,7 +742,11 @@ function onlineHandlers() {
 }
 
 // 招待 URL（?room=合言葉）から開いたとき
-const room = new URLSearchParams(location.search).get('room');
+const params = new URLSearchParams(location.search);
+const room = params.get('room');
 if (room) { screen = 'online'; onlineSession.pendingCode = room.toUpperCase(); }
+// 観戦の URL（?lishogi=対局の ID）から開いたとき
+const watchId = gameIdOf(params.get('lishogi') ?? '');
+if (watchId) { screen = 'watch-list'; watchList.games = []; void startWatch(watchId); }
 render();
 void mkMove;

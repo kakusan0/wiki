@@ -124,6 +124,64 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
     assert(await page.locator('.analysis .eval-graph').count() === 0, '古い解析は消える');
   });
 
+  await step(`${label}：Lishogi の対局を観戦する（一覧・新しい手・形勢）`, async () => {
+    // Lishogi の API は本物を呼ばず、決まった答えを返す。読むたびに 1 手ずつ進む対局
+    const MOVES = ['7g7f', '3c3d', '2g2f', '8c8d', '2f2e', '8d8e'];
+    let polls = 0;
+    const game = (n, status = 'started') => ({
+      id: 'TestGame', rated: true, variant: 'standard', status, ...(status === 'started' ? {} : { winner: 'sente' }),
+      players: { sente: { user: { name: 'sakura' }, rating: 1850 }, gote: { user: { name: 'kaede' }, rating: 1790 } },
+      moves: MOVES.slice(0, n).join(' '), clock: { initial: 600, increment: 0, byoyomi: 30, periods: 1 },
+    });
+    await page.route('https://lishogi.org/**', (route) => {
+      const u = new URL(route.request().url());
+      const cors = { 'Access-Control-Allow-Origin': '*' };
+      if (u.pathname === '/api/tv/standard') {
+        return route.fulfill({ headers: { ...cors, 'Content-Type': 'application/x-ndjson' }, body: [game(2), { ...game(9), id: 'OtherOne', variant: 'minishogi' }].map((g) => JSON.stringify(g)).join('\n') + '\n' });
+      }
+      if (u.pathname === '/game/export/TestGame') {
+        polls++;
+        const n = Math.min(2 + polls, MOVES.length);
+        return route.fulfill({ headers: { ...cors, 'Content-Type': 'application/json' }, body: JSON.stringify(game(n, n === MOVES.length ? 'resign' : 'started')) });
+      }
+      return route.fulfill({ status: 404, headers: cors, body: '{}' });
+    });
+    await title();
+    await page.getByRole('button', { name: '対局中の対局を見る' }).click();
+    const item = page.locator('.watch-game');
+    await item.first().waitFor();
+    assert(await item.count() === 1, '本将棋の対局中のものだけが一覧に出る');
+    assert((await item.innerText()).includes('sakura（1850）'), '名前とレーティング');
+    await noOverflow();
+    await item.click();
+    await page.locator('.watch-info .live').waitFor();
+    assert(/TestGame$/.test(page.url().split('lishogi=')[1] ?? ''), 'URL に対局の ID');
+    // 4 秒ごとに読み直して、手が増えていく
+    await page.waitForFunction(() => document.querySelectorAll('.kifu .moves li').length >= 6, null, { timeout: 30000 });
+    assert(await page.locator('.analysis .eval-graph').count() === 1, '形勢のグラフが自動で出る');
+    assert(await page.getByRole('button', { name: '投了' }).count() === 0, '観戦では投了できない');
+    assert((await page.locator('.analysis').innerText()).includes('最善手を出しません'), '対局中は最善手を出さない');
+    // 終局すると読みにいくのをやめ、最善手も出る
+    await page.getByText('投了。先手の勝ち').first().waitFor({ timeout: 30000 });
+    assert(await page.locator('.watch-info .live').count() === 0, '終局したら「対局中」を消す');
+    assert((await kifu()).includes('△8五歩'), '最後の手まで並ぶ');
+    await page.locator('.analysis .tally').waitFor({ timeout: 30000 });
+    await page.locator('.kifu .moves li').nth(1).click();
+    assert(/最善手：△/.test(await page.locator('.analysis').innerText()), '終局後は最善手が出る');
+    const before = polls;
+    await page.waitForTimeout(5000);
+    assert(polls === before, `終局後は読みにいかない（${before}→${polls}）`);
+    await noOverflow();
+    // URL で開く：形が違えば知らせる
+    await page.getByRole('button', { name: '← もどる' }).click();
+    assert(!page.url().includes('lishogi='), 'もどると URL から消える');
+    await page.getByRole('button', { name: '対局中の対局を見る' }).click();
+    await page.getByLabel('Lishogi の対局の URL か ID').fill('https://example.com/x');
+    await page.getByRole('button', { name: '観戦する' }).click();
+    await page.getByRole('alert').waitFor();
+    await page.unroute('https://lishogi.org/**');
+  });
+
   await step(`${label}：コンピューターと対局`, async () => {
     await title();
     await page.getByRole('button', { name: 'コンピューターと対局する' }).click();

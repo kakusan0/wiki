@@ -162,3 +162,17 @@ h1, h2 { margin: 0; }
 .analysis .tally th, .analysis .tally td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: center; }
 .analysis .tally tbody th { text-align: left; font-weight: 700; }
 .analysis .btns { align-items: center; }
+
+/* Lishogi の観戦 */
+.watch-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.watch-game { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; white-space: normal; }
+.watch-game .vs { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.watch-game small { color: var(--sub); font-weight: 500; }
+.title-main .row { display: flex; gap: 8px; margin-top: 8px; }
+.title-main .row .text { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--panel); color: var(--ink); }
+.watch-info p { margin: 6px 0 0; }
+.watch-info .live { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--danger); }
+.watch-info .live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: live-blink 1.6s ease-in-out infinite; }
+.watch-info a { color: var(--accent); }
+@keyframes live-blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .watch-info .live .dot { animation: none; } }

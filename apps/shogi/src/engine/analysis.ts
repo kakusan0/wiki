@@ -57,12 +57,14 @@ export function reviewMoves(evals: PlyEval[], moves: Move[], startSide: 0 | 1): 
   return out;
 }
 
-// 一局ぶんを順に調べる（Web Worker から呼ぶ）。onPly は 1 局面ごとに呼ばれる
-export function analyzeGame(rules: Ruleset, startSfen: string, moves: Move[], timeMs: number, onPly: (k: number, e: PlyEval) => boolean | void): void {
+// 一局ぶんを順に調べる（Web Worker から呼ぶ）。onPly は 1 局面ごとに呼ばれる。
+// from から先だけ調べる（観戦中に手が増えたとき、増えたぶんだけ調べる）
+export function analyzeGame(rules: Ruleset, startSfen: string, moves: Move[], timeMs: number, onPly: (k: number, e: PlyEval) => boolean | void, from = 0): void {
   const p = Position.fromSfen(startSfen, rules);
   let lastTo: number | null = null;
   for (let k = 0; k <= moves.length; k++) {
     if (k > 0) { p.make(moves[k - 1]); lastTo = mTo(moves[k - 1]); }
+    if (k < from) continue;
     if (onPly(k, evalPosition(p, timeMs, lastTo)) === false) return;
   }
 }
