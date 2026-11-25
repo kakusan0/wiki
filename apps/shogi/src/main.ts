@@ -9,7 +9,7 @@ import { askMove, cancelThinking } from './ui/ai-client';
 import { MARK_NAMES, MARK_SIGNS, isMateScore, reviewMoves, scoreLabel, scoreText, senteScore, type MoveReview, type PlyEval } from './engine/analysis';
 import { startAnalysis, type AnalysisJob } from './ui/analysis-client';
 import { fromUsi } from './engine/usi';
-import { LISHOGI, RateLimited, clockText, fetchGame, gameIdOf, listLiveGames, playerLabel, startedText, statusText, type LishogiGame } from './ui/lishogi';
+import { LISHOGI, RateLimited, clockText, currentGame, fetchGame, fetchTopPlayers, gameIdOf, playerLabel, startedText, statusText, strongLiveGames, type LishogiGame, type StrongGame, type TopPlayer } from './ui/lishogi';
 import { renderBoard, targetsOf, type BoardView } from './ui/board';
 import { h } from './ui/dom';
 import { renderOnlineEntry, onlineSession, type OnlineSession } from './ui/online';
@@ -253,9 +253,9 @@ function renderTitle() {
 
       h('section', { class: 'panel mode' },
         h('h2', {}, '世界の対局を観戦'),
-        h('p', { class: 'note' }, 'Lishogi（世界の人が遊ぶ無料の将棋サイト）でいま指されている対局を、形勢を見ながら観戦します。'),
+        h('p', { class: 'note' }, 'Lishogi（世界の人が遊ぶ無料の将棋サイト）で、レーティング上位の強い人がいま指している対局を、形勢を見ながら観戦します。'),
         h('div', { class: 'btns' },
-          h('button', { class: 'btn primary', onclick: () => { screen = 'watch-list'; session = null; render(); } }, '対局中の対局を見る'))),
+          h('button', { class: 'btn primary', onclick: () => { screen = 'watch-list'; session = null; render(); } }, '強い人の対局を見る'))),
 
       h('section', { class: 'panel mode' },
         h('h2', {}, '練習'),
@@ -516,7 +516,7 @@ function renderAnalysis(s: Session): HTMLElement | null {
 
 // ---------- Lishogi の観戦 ----------
 const WATCH_MS = 4000; // 対局中の手を読みにいく間隔
-let watchList: { games: LishogiGame[] | null; error: string; loading: boolean } = { games: null, error: '', loading: false };
+let watchList: { games: StrongGame[] | null; players: TopPlayer[]; error: string; loading: boolean } = { games: null, players: [], error: '', loading: false };
 
 function stopWatch(s: Session | null) {
   if (s?.watch?.timer != null) { clearTimeout(s.watch.timer); s.watch.timer = null; }
@@ -611,7 +611,10 @@ function renderWatchInfo(s: Session): HTMLElement {
 async function loadWatchList() {
   watchList = { ...watchList, loading: true, error: '' };
   render();
-  try { watchList.games = await listLiveGames(); } catch (e) {
+  try {
+    if (!watchList.players.length) watchList.players = await fetchTopPlayers();
+    watchList.games = await strongLiveGames(watchList.players);
+  } catch (e) {
     watchList.error = e instanceof RateLimited ? 'Lishogi が混んでいます。1 分ほど待ってからもう一度お試しください。' : `一覧を読めませんでした（${(e as Error).message}）`;
   }
   watchList.loading = false;
@@ -631,23 +634,34 @@ function renderWatchList() {
   app.replaceChildren(h('div', {},
     header('世界の対局を観戦'),
     h('main', { class: 'title-main' },
-      h('p', { class: 'lead' }, 'Lishogi（世界の人が遊ぶ無料でオープンソースの将棋サイト）で、いま指されている本将棋の対局です。選ぶと盤に並べ、新しい手が指されるたびに形勢を読みます。'),
+      h('p', { class: 'lead' }, 'Lishogi（世界の人が遊ぶ無料でオープンソースの将棋サイト）で、強い人がいま指している本将棋の対局です。選ぶと盤に並べ、新しい手が指されるたびに形勢を読みます。'),
       watchList.error ? h('p', { class: 'message', role: 'alert' }, watchList.error) : null,
       h('section', { class: 'panel' },
-        h('h2', {}, 'いま注目の対局'),
+        h('h2', {}, '強い人の対局'),
+        h('p', { class: 'note' }, watchList.players.length
+          ? `Lishogi のリアルタイム戦のレーティング上位 ${watchList.players.length} 人（${Math.min(...watchList.players.map((p) => p.rating))} 以上）が、いま指している対局だけを出します。★ が強い人です。`
+          : 'Lishogi のリアルタイム戦のレーティング上位の人が、いま指している対局だけを出します。'),
         watchList.loading && !games.length ? h('p', { class: 'note', role: 'status' }, '読み込んでいます…') : null,
-        !watchList.loading && watchList.games && !games.length ? h('p', { class: 'note' }, 'いま対局中の注目の対局はありません。少ししてから「新しくする」を押してください。') : null,
-        h('ul', { class: 'watch-list' }, games.map((g) => h('li', {},
-          h('button', { class: 'btn watch-game', onclick: () => void startWatch(g.id) },
-            h('span', { class: 'vs' }, `▲${playerLabel(g.players.sente)}`, h('small', {}, ' 対 '), `△${playerLabel(g.players.gote)}`),
-            h('small', {}, [startedText(g), clockText(g), g.rated ? 'レーティング戦' : ''].filter(Boolean).join('・')))))),
-        h('div', { class: 'btns' }, h('button', { class: 'btn sm', disabled: watchList.loading, onclick: () => void loadWatchList() }, watchList.loading ? '読み込み中…' : '新しくする')),
-        h('p', { class: 'note' }, '一覧は少し前の様子です。開くと最新の手まで並べます。')),
+        h('ul', { class: 'watch-list' }, games.map(({ game: g, strong }) => {
+          const star = (p: LishogiGame['players']['sente']) => (strong.some((x) => x.name.toLowerCase() === p.name.toLowerCase()) ? '★' : '');
+          return h('li', {},
+            h('button', { class: 'btn watch-game', onclick: () => void startWatch(g.id) },
+              h('span', { class: 'vs' }, `▲${star(g.players.sente)}${playerLabel(g.players.sente)}`, h('small', {}, ' 対 '), `△${star(g.players.gote)}${playerLabel(g.players.gote)}`),
+              h('small', {}, [startedText(g), clockText(g), g.rated ? 'レーティング戦' : ''].filter(Boolean).join('・'))));
+        })),
+        !watchList.loading && watchList.games && !games.length ? h('div', {},
+          h('p', { class: 'note' }, 'いま対局中の強い人はいません。少ししてから「新しくする」を押すか、上位の人の最近の対局を開いてください。'),
+          h('ul', { class: 'top-players' }, watchList.players.slice(0, 10).map((p, i) => h('li', {},
+            h('span', {}, `${i + 1}. ${p.title ? `${p.title} ` : ''}${p.name}（${p.rating}）`),
+            h('button', { class: 'btn sm', onclick: async () => {
+              try { const g = await currentGame(p.id); void startWatch(g.id); } catch (e) { watchList.error = (e as Error).message; render(); }
+            } }, '最近の対局'))))) : null,
+        h('div', { class: 'btns' }, h('button', { class: 'btn sm', disabled: watchList.loading, onclick: () => void loadWatchList() }, watchList.loading ? '読み込み中…' : '新しくする'))),
       h('section', { class: 'panel' },
         h('h2', {}, 'URL で開く'),
         h('p', { class: 'note' }, 'Lishogi で見つけた対局の URL を貼り付けます。終わった対局も開けます（解析も使えます）。'),
         h('div', { class: 'row' }, input, h('button', { class: 'btn primary', disabled: watchList.loading, onclick: open }, '観戦する'))),
-      h('p', { class: 'note' }, '対局のデータは Lishogi（lishogi.org）の公開 API から、この端末が直接読み込みます。対局が続いている間は、最善手を出しません。'))));
+      h('p', { class: 'note' }, '対局のデータは Lishogi（lishogi.org）の公開 API から、この端末が直接読み込みます（強い人の一覧だけは、このサイトのサーバーが 10 分ごとに読みます）。対局が続いている間は、最善手を出しません。'))));
 }
 
 // ---------- 詰将棋の一覧 ----------

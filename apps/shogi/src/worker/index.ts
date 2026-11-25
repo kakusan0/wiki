@@ -1,6 +1,7 @@
 // Worker の入口。/api/* だけを処理し、ほかは静的ファイル（画面）を返す
 import { RULESETS } from '../engine/rules';
 import { TIME_RULES, isCode, randomCode } from './logic';
+import { TOP_TTL, topPlayers } from './lishogi-top';
 
 export { RoomDO } from './room';
 
@@ -22,6 +23,16 @@ export default {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
     if (!sameOrigin(req)) return json({ error: 'forbidden' }, 403);
+
+    // Lishogi の強い人の一覧（観戦の画面で使う）
+    if (url.pathname === '/api/lishogi/top' && req.method === 'GET') {
+      try {
+        const players = await topPlayers();
+        return Response.json({ players }, { headers: { 'Cache-Control': `public, max-age=${TOP_TTL}` } });
+      } catch {
+        return json({ error: 'Lishogi から読めませんでした' }, 502);
+      }
+    }
 
     // 合言葉の部屋を作る
     if (url.pathname === '/api/rooms' && req.method === 'POST') {

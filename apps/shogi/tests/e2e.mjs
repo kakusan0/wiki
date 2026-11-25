@@ -133,12 +133,20 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
       players: { sente: { user: { name: 'sakura' }, rating: 1850 }, gote: { user: { name: 'kaede' }, rating: 1790 } },
       moves: MOVES.slice(0, n).join(' '), clock: { initial: 600, increment: 0, byoyomi: 30, periods: 1 },
     });
+    // 強い人の一覧（このアプリのサーバー）：sakura は上位、kaede・ume は入っていない
+    let anyonePlaying = true;
+    await page.route('**/api/lishogi/top', (route) => route.fulfill({ json: { players: [
+      { id: 'sakura', name: 'sakura', rating: 2400, title: null }, { id: 'momo', name: 'momo', rating: 2300, title: null },
+    ] } }));
     await page.route('https://lishogi.org/**', (route) => {
       const u = new URL(route.request().url());
       const cors = { 'Access-Control-Allow-Origin': '*' };
-      if (u.pathname === '/api/tv/standard') {
-        return route.fulfill({ headers: { ...cors, 'Content-Type': 'application/x-ndjson' }, body: [game(2), { ...game(9), id: 'OtherOne', variant: 'minishogi' }].map((g) => JSON.stringify(g)).join('\n') + '\n' });
+      if (u.pathname === '/api/users/status') {
+        return route.fulfill({ headers: cors, json: [{ id: 'sakura', name: 'sakura', playing: anyonePlaying }, { id: 'momo', name: 'momo', online: true }] });
       }
+      if (u.pathname === '/api/user/sakura/current-game') return route.fulfill({ headers: cors, json: game(2) });
+      if (u.pathname === '/api/user/momo/current-game') return route.fulfill({ headers: cors, json: { ...game(4, 'resign'), id: 'MomoLast', players: { sente: { user: { name: 'momo' }, rating: 2300 }, gote: { user: { name: 'ume' }, rating: 1500 } } } });
+      if (u.pathname === '/game/export/MomoLast') return route.fulfill({ headers: cors, json: { ...game(4, 'resign'), id: 'MomoLast' } });
       if (u.pathname === '/game/export/TestGame') {
         polls++;
         const n = Math.min(2 + polls, MOVES.length);
@@ -147,11 +155,13 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
       return route.fulfill({ status: 404, headers: cors, body: '{}' });
     });
     await title();
-    await page.getByRole('button', { name: '対局中の対局を見る' }).click();
+    await page.getByRole('button', { name: '強い人の対局を見る' }).click();
     const item = page.locator('.watch-game');
     await item.first().waitFor();
-    assert(await item.count() === 1, '本将棋の対局中のものだけが一覧に出る');
-    assert((await item.innerText()).includes('sakura（1850）'), '名前とレーティング');
+    assert(await item.count() === 1, '強い人の対局だけが一覧に出る');
+    assert((await item.innerText()).includes('★sakura（1850）'), '強い人に ★、名前とレーティング');
+    assert(!(await item.innerText()).includes('★kaede'), '上位でない人に ★ はつかない');
+    assert((await page.locator('.title-main').innerText()).includes('上位 2 人（2300 以上）'), '強い人の決め方を出す');
     await noOverflow();
     await item.click();
     await page.locator('.watch-info .live').waitFor();
@@ -175,11 +185,22 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
     // URL で開く：形が違えば知らせる
     await page.getByRole('button', { name: '← もどる' }).click();
     assert(!page.url().includes('lishogi='), 'もどると URL から消える');
-    await page.getByRole('button', { name: '対局中の対局を見る' }).click();
+    // 強い人が誰も対局中でなければ、そう出して、上位の人の最近の対局を開ける
+    anyonePlaying = false;
+    await page.getByRole('button', { name: '強い人の対局を見る' }).click();
+    await page.getByRole('button', { name: '新しくする' }).click();
+    await page.getByText('いま対局中の強い人はいません').waitFor();
+    assert(await page.locator('.watch-game').count() === 0, '一覧は空');
+    await noOverflow();
+    await page.locator('.top-players li').nth(1).getByRole('button', { name: '最近の対局' }).click();
+    await page.getByText('投了。先手の勝ち').first().waitFor();
+    await page.getByRole('button', { name: '← もどる' }).click();
+    await page.getByRole('button', { name: '強い人の対局を見る' }).click();
     await page.getByLabel('Lishogi の対局の URL か ID').fill('https://example.com/x');
     await page.getByRole('button', { name: '観戦する' }).click();
     await page.getByRole('alert').waitFor();
     await page.unroute('https://lishogi.org/**');
+    await page.unroute('**/api/lishogi/top');
   });
 
   await step(`${label}：コンピューターと対局`, async () => {

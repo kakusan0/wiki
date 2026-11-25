@@ -1,6 +1,7 @@
 // Lishogi（lishogi.org、無料でオープンソースの将棋サイト）の対局を読む。
 // API は誰でも使え、ブラウザから直接呼べる（CORS で許されている）。ログインはいらない。
-//  - いまの注目の対局の一覧：/api/tv/<チャンネル>（少し前の様子。一覧に使うだけ）
+//  - 強い人：このアプリのサーバーの /api/lishogi/top（Lishogi の上位 100 人を 10 分覚えておく）
+//  - いま対局中か：/api/users/status 、その人のいまの対局：/api/user/<id>/current-game
 //  - 1 局の今の手：/game/export/<id>（対局中も手が進む。数秒ごとに読みにいく）
 
 export const LISHOGI = 'https://lishogi.org';
@@ -62,16 +63,50 @@ async function get(path: string, accept: string): Promise<Response> {
   return res;
 }
 
-// いまの注目の対局（本将棋・対局中のもの）
-export async function listLiveGames(nb = 15): Promise<LishogiGame[]> {
-  const res = await get(`/api/tv/standard?nb=${nb}`, 'application/x-ndjson');
-  const text = await res.text();
-  const out: LishogiGame[] = [];
-  for (const line of text.split('\n')) {
-    if (!line.trim()) continue;
-    try { out.push(parseGame(JSON.parse(line) as Raw)); } catch { /* 読めない行は飛ばす */ }
+// 強い人（Lishogi のリアルタイム戦のレーティング上位）。一覧はこのアプリのサーバーが代わりに読む
+export interface TopPlayer { id: string; name: string; rating: number; title: string | null }
+export interface StrongGame { game: LishogiGame; strong: TopPlayer[] }
+
+export async function fetchTopPlayers(base = import.meta.env.BASE_URL): Promise<TopPlayer[]> {
+  const res = await fetch(`${base}api/lishogi/top`);
+  if (!res.ok) throw new Error(`強い人の一覧を読めませんでした（${res.status}）`);
+  return ((await res.json()) as { players: TopPlayer[] }).players;
+}
+
+// いま対局中の人（一度に 100 人まで）
+export async function playingIds(ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const res = await get(`/api/users/status?ids=${ids.slice(0, 100).map(encodeURIComponent).join(',')}`, 'application/json');
+  const list = (await res.json()) as { id: string; playing?: boolean }[];
+  return new Set(list.filter((u) => u.playing).map((u) => u.id.toLowerCase()));
+}
+
+// その人のいまの対局（対局中でなければ、最後の対局）
+export async function currentGame(userId: string): Promise<LishogiGame> {
+  const res = await get(`/api/user/${encodeURIComponent(userId)}/current-game`, 'application/json');
+  return parseGame((await res.json()) as Raw);
+}
+
+// 強い人が指している対局だけを集める（本将棋・対局中）。強い人のレーティングの高い順
+export function collectStrongGames(players: TopPlayer[], games: LishogiGame[]): StrongGame[] {
+  const byName = new Map(players.map((p) => [p.name.toLowerCase(), p]));
+  const seen = new Set<string>();
+  const out: StrongGame[] = [];
+  for (const g of games) {
+    if (seen.has(g.id) || g.variant !== 'standard' || g.status !== 'started') continue;
+    seen.add(g.id);
+    const strong = [g.players.sente, g.players.gote].map((p) => byName.get(p.name.toLowerCase())).filter((p): p is TopPlayer => !!p);
+    if (strong.length) out.push({ game: g, strong });
   }
-  return out.filter((g) => g.variant === 'standard' && g.status === 'started');
+  const top = (x: StrongGame) => Math.max(...x.strong.map((p) => p.rating));
+  return out.sort((a, b) => top(b) - top(a));
+}
+
+export async function strongLiveGames(players: TopPlayer[]): Promise<StrongGame[]> {
+  const now = await playingIds(players.map((p) => p.id));
+  const ids = players.filter((p) => now.has(p.id)).slice(0, 12).map((p) => p.id); // 読みすぎないよう 12 人まで
+  const games = await Promise.all(ids.map((id) => currentGame(id).catch(() => null)));
+  return collectStrongGames(players, games.filter((g): g is LishogiGame => !!g));
 }
 
 export async function fetchGame(id: string): Promise<LishogiGame> {
