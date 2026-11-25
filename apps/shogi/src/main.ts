@@ -346,8 +346,14 @@ function renderGame(s: Session) {
   // 観戦中に新しい手が来たら、最新の局面を見ているときは棋譜の一覧のいちばん下を見せる
   if (list && s.watch && s.view == null && g.record.length !== s.watch.shown) list.scrollTop = list.scrollHeight;
   if (s.watch) s.watch.shown = g.record.length;
-  // 再生中は、棋譜の一覧で今の手が見えるようにする
-  if (replay && list) list.querySelector('li.on')?.scrollIntoView({ block: 'nearest' });
+  // 再生中は、棋譜の一覧で今の手が見えるようにする。
+  // scrollIntoView はページごと動かして盤が画面の外へ逃げる（スマホは一覧が盤の下）ので、一覧の中だけを動かす
+  const on = replay && list ? list.querySelector<HTMLElement>('li.on') : null;
+  if (list && on) {
+    const top = on.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop, bottom = top + on.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  }
 }
 
 function reviews(s: Session): MoveReview[] {

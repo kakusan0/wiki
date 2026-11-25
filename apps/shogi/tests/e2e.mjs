@@ -107,11 +107,14 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
     const pos = () => page.locator('.replay-pos').innerText();
     const on = () => page.locator('.kifu .moves li.on').innerText();
     await page.getByRole('button', { name: 'はやい' }).click();
-    await page.click('#replay');
+    // 再生しても、ページはスクロールしない（盤が画面の外へ逃げない）。棋譜の一覧の中だけが動く
+    await page.evaluate(() => { scrollTo(0, 0); document.querySelector('.kifu .moves').scrollTop = 0; });
+    await page.evaluate(() => document.getElementById('replay').click());
     assert((await page.locator('#replay').innerText()).includes('停止'), '再生中は停止ボタン');
     await page.waitForFunction(() => document.querySelector('.replay-pos')?.textContent?.startsWith('2 手目'), null, { timeout: 5000 });
     assert((await on()).startsWith('2. △3四歩'), `棋譜の一覧も一緒に進む：${await on()}`);
     await page.waitForFunction(() => document.querySelector('.replay-pos')?.textContent?.includes('（最新）'), null, { timeout: 10000 });
+    assert(await page.evaluate(() => scrollY) === 0, `再生でページがスクロールした（${await page.evaluate(() => scrollY)}）`);
     assert((await page.locator('#replay').innerText()).includes('再生'), '最後まで来たら止まる');
     await noOverflow();
     // 1 手ずつ
