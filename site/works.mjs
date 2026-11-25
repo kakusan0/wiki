@@ -106,13 +106,46 @@ export const WORKS = [
   {
     id: 'qr-order', name: 'QR オーダー', kind: 'tool', color: '#b3302c', play: 'qr-order',
     // 作品の中のページへのボタン（同じサイトの中のパス）
-    links: [{ href: '/qr-order/wiki', label: 'ページ一覧（/qr-order/wiki）', note: 'QR オーダーで開ける画面の一覧。開くときはパスキーでの本人確認が必要' }],
+    links: [{ href: '#pages', label: '画面の一覧' }],
     tagline: '店頭の QR を読んで、商品を選んで、その場で支払う',
     tags: ['スマホ', '事前決済', 'お店の管理画面'],
     summary: 'お客様は店頭の QR やバーコードを読み取って商品を選び、カード・Apple Pay・Google Pay・PayPay などで支払います。お店は管理画面で注文・年齢確認・返金・商品を扱います。',
     sections: [
       { h: 'お客様', list: ['QR またはバーコードを読み取るとカートに入る', '支払い後に購入の証明（注文番号・明細）。メールでも受け取れる'] },
-      { h: 'お店', list: ['注文の確認、年齢確認、返金（全額・一部）、商品の登録（バーコード読み取り）', 'スタッフはパスキーでログイン（パスワードなし）', '電子棚札の画像と QR', '商品を渡してよいのは「支払済」の注文だけ（決済の成功と金額をサーバーで確かめてから）', 'ページ一覧（/qr-order/wiki）：QR オーダーで開ける画面の一覧。開くたびにパスキーでの本人確認が必要'] },
+      { h: 'お店', list: ['注文の確認、年齢確認、返金（全額・一部）、商品の登録（バーコード読み取り）', 'スタッフはパスキーでログイン（パスワードなし）', '電子棚札の画像と QR', '商品を渡してよいのは「支払済」の注文だけ（決済の成功と金額をサーバーで確かめてから）'] },
+    ],
+    // 画面の一覧（パスと内容）。path が開けるものは href を付ける。<店舗ID> などは店舗・注文ごとに変わる
+    pagesNote: '<店舗ID> や <注文ID> の部分は、店舗・注文ごとに変わります（いまの店舗 ID は shop-001）。',
+    pages: [
+      { id: 'info', h: '公式サイト・案内', rows: [
+        { path: '/qr-order/', href: '/qr-order/', desc: '公式サイト（サービス紹介）' },
+        { path: '/qr-order/guide/', href: '/qr-order/guide/', desc: '使い方の目次' },
+        { path: '/qr-order/guide/customer', href: '/qr-order/guide/customer', desc: 'お客様向けの使い方' },
+        { path: '/qr-order/legal/tokushoho', href: '/qr-order/legal/tokushoho', desc: '特定商取引法に基づく表記' },
+        { path: '/qr-order/legal/terms', href: '/qr-order/legal/terms', desc: '利用規約' },
+        { path: '/qr-order/legal/privacy', href: '/qr-order/legal/privacy', desc: 'プライバシーポリシー' },
+      ] },
+      { id: 'customer', h: 'お客様の画面', rows: [
+        { path: '/qr-order/s/<店舗ID>', href: '/qr-order/s/shop-001', desc: 'お店のページ（商品の読み取り・カート・支払い）。店頭の QR コードで開く画面' },
+        { path: '/qr-order/contact/<店舗ID>?order=<注文ID>', desc: 'その注文についての、店舗へのチャットでの問い合わせ。購入の証明の画面、または返品・交換の画面から開く' },
+        { path: '/qr-order/order/<注文ID>', desc: '購入の証明（支払い完了の画面）。支払い後の画面や購入完了メールから開く' },
+        { path: '/qr-order/return/<注文ID>', desc: '返品・交換の申し込み。購入完了メールや購入の証明の画面から開く' },
+      ] },
+      { id: 'staff', h: '店舗スタッフの画面', rows: [
+        { path: '/qr-order/guide/staff', href: '/qr-order/guide/staff', desc: '店舗スタッフ向けの使い方。ログインが必要（未ログインならログイン画面へ移り、ログイン後にこのページを開く）' },
+        { path: '/qr-order/staff', href: '/qr-order/staff', desc: '管理画面（注文・商品・返品・問い合わせ・店舗 QR・スタッフ・パスキー）。ログインが必要' },
+        { path: '/qr-order/staff/login', href: '/qr-order/staff/login', desc: 'ログイン（パスキー）' },
+        { path: '/qr-order/staff/setup', href: '/qr-order/staff/setup', desc: '初回の設定（メールの確認コードとパスキーの登録）' },
+        { path: '/qr-order/staff/display', href: '/qr-order/staff/display', desc: '店頭掲示用の QR 表示画面。ログインが必要' },
+      ] },
+      { id: 'esl', h: '電子棚札（ST-GR29000）', note: 'OpenEPaperLink の基地局と、棚札の QR コードが使うアドレスです。設定の手順は apps/qr-order/docs/esl-setup.md、画像 URL の一覧は管理画面の「店舗 QR」にあります。', rows: [
+        { path: '/qr-order/esl/<商品ID>.jpg', href: '/qr-order/esl/p-001.jpg', desc: '棚札に表示する画像（296×128、商品の QR・商品名・価格）。基地局の「7 - Image URL」に設定する' },
+        { path: '/qr-order/p/<商品ID>', href: '/qr-order/p/p-001', desc: '棚札の QR コードに入っている短いアドレス。開くと、その商品をカートに入れたお客様画面に移る' },
+      ] },
+      { id: 'webhook', h: '外部サービスからの通知を受け取る URL', note: 'ブラウザでは開けません。各サービスの管理画面に登録する URL です。', rows: [
+        { path: '/qr-order/api/stripe/webhook', desc: 'Stripe（決済）の通知' },
+        { path: '/qr-order/api/line/webhook', desc: 'LINE（問い合わせ）の通知' },
+      ] },
     ],
     related: [],
     tech: 'TypeScript。Cloudflare Workers と D1、Stripe、Resend',

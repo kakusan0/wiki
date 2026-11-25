@@ -181,10 +181,8 @@ r = await j('GET', '/guide/staff');
 rec('S', 'スタッフ用ガイドはログインしていないと開けない', 'ログイン画面へ移動', r.status === 302 && r.loc?.includes('next=%2Fqr-order%2Fguide%2Fstaff'), `${r.status} → ${r.loc}`);
 r = await j('GET', '/guide/staff', undefined, { cookie: STAFF });
 rec('S', 'ログイン中はスタッフ用ガイドを開ける', '200', r.status === 200, r.status);
-r = await j('GET', '/wiki', undefined, { cookie: ADMIN });
-rec('S', 'ページ一覧は、ログイン中でも本人確認から 5 分を過ぎていれば確認し直す', 'ログイン画面（本人確認）へ移動', r.status === 302 && r.loc?.includes('reauth=1'), `${r.status} → ${r.loc}`);
-r = await j('GET', '/wiki', undefined, { cookie: STAFF });
-rec('S', 'ページ一覧は、本人確認の直後なら開ける', '200', r.status === 200, r.status);
+r = await j('GET', '/wiki');
+rec('S', 'ページ一覧（/wiki）は、作品 wiki の「画面の一覧」へ移る（パスキーの確認なし）', '301 → /wiki/qr-order/#pages', r.status === 301 && new URL(r.loc || '', B).pathname === '/wiki/qr-order/' && (r.loc || '').endsWith('#pages'), `${r.status} → ${r.loc}`);
 r = await j('POST', '/api/staff/products', { storeId: 'shop-001', name: 'テスト商品', price: 120, taxRate: 8 }, { cookie: STAFF, headers: { Origin: new URL(B).origin } });
 rec('M', '一般スタッフは商品を登録できない（管理者のみ）', '403', r.status === 403, r.status);
 r = await j('POST', '/api/staff/products', { storeId: 'shop-001', name: 'テスト商品', price: 120, taxRate: 8, barcode: '4901234567894' }, { cookie: ADMIN, headers: { Origin: new URL(B).origin } });
@@ -235,7 +233,5 @@ rec('E', '存在しない商品・不正な名前には画像を返さない', '
 r = await j('GET', '/p/p-003');
 rec('E', '棚札の QR の短いアドレスは、その商品をカートに入れる画面へ移る', '302 → /s/shop-001?add=p-003', r.status === 302 && (r.loc || '').endsWith('/s/shop-001?add=p-003'), `${r.status} → ${(r.loc || '').replace(B, '')}`);
 
-r = await j('GET', '/wiki', undefined, { cookie: STAFF });
-rec('E', 'ページ一覧（/wiki）に、電子棚札のパス（/esl/、/p/）が載っている', '両方が載っている', typeof r.data === 'string' && r.data.includes('/esl/') && r.data.includes('/p/'), r.status);
 
 fs.writeFileSync(process.env.RESULTS_FILE, JSON.stringify(results, null, 1));

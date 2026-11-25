@@ -23,7 +23,6 @@
 <header class="bar"><h1>スタッフログイン</h1></header>
 <main>
   <div class="card form">
-    <p id="reauth" class="gate" hidden><strong>このページを開くには、パスキーでの本人確認が必要です。</strong>ログイン中でも、開くたびに確認します。</p>
     <p>この端末に登録したパスキー（指紋・顔・画面ロック）でログインします。</p>
     <button id="login" class="primary">パスキーでログイン</button>
     <p id="error" class="error" role="alert" hidden></p>
@@ -32,11 +31,6 @@
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
-// ページ一覧など、開くたびに本人確認が必要なページから来たとき
-if (new URLSearchParams(location.search).get('reauth') === '1') {
-  $('reauth').hidden = false;
-  $('login').textContent = 'パスキーで本人確認';
-}
 const fail = (msg) => { $('error').textContent = msg; $('error').hidden = false; $('login').disabled = false; };
 const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
 

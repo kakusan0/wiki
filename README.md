@@ -68,6 +68,9 @@ npm run dev -w apps/shiomi
 
 Cloudflare Workers の `wiki` という Worker 1 つで公開します（`wrangler.jsonc`）。ビルドは `npm run build` が自動で走ります。
 
+- 公開先は `wiki.infoapp.org` だけです。サイト全体を Cloudflare Access で守るため、Access のかからない `*.workers.dev` とプレビューの URL は止めています（`workers_dev`・`preview_urls` を `false`）。
+- QR オーダーの画面の一覧は、作品のページ（`/wiki/qr-order/#pages`）にタブで載せています。中身は `site/works.mjs` の `pages` です。前のページ一覧 `/qr-order/wiki` は、そこへ移ります。管理画面のパスキーでのログインは、そのまま使います。
+
 ### シークレット（Cloudflare の wiki の Worker に入れる）
 
 値はチャットやコードに書かず、Cloudflare のダッシュボード（Worker → 設定 → 変数とシークレット）で入れてください。

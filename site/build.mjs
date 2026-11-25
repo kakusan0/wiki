@@ -13,6 +13,7 @@ export const playUrl = (w) => (w.play ? `/${w.play}/` : null);
 export const repoUrl = (w) => `https://github.com/${OWNER}/wiki/tree/main/apps/${w.id}`;
 const byId = new Map(WORKS.map((w) => [w.id, w]));
 const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+const tabsJs = readFileSync(new URL('./tabs.js', import.meta.url), 'utf8');
 
 function page({ title, desc, body, depth }) {
   // style.css は dist/wiki/ にある。一覧（depth 1）からは ./、作品のページ（depth 2）からは ../
@@ -78,6 +79,25 @@ function section(s) {
   return `<section><h2>${esc(s.h)}</h2>${inner}</section>`;
 }
 
+// 画面の一覧：パスと内容の表。開けるものはリンク、<店舗ID> などの形は文字で示し、例をリンクにする
+function pages(w) {
+  if (!w.pages) return '';
+  const cell = (r) => r.href === r.path ? `<a href="${esc(r.href)}">${esc(r.path)}</a>`
+    : `<code>${esc(r.path)}</code>${r.href ? `<br><a href="${esc(r.href)}">${esc(r.href)}</a>` : ''}`;
+  // タブ（role="tablist"）はスクリプト（tabs.js）が出す。スクリプトがなければ、全部のグループを縦に並べて見せる
+  const tabs = w.pages.map((g, i) => `<button type="button" role="tab" id="tab-${g.id}" aria-controls="panel-${g.id}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${esc(g.h)}</button>`).join('');
+  const panels = w.pages.map((g) => `<div role="tabpanel" id="panel-${g.id}" aria-labelledby="tab-${g.id}" tabindex="0">
+<h3>${esc(g.h)}</h3>${g.note ? `<p class="note">${esc(g.note)}</p>` : ''}
+<div class="tbl"><table class="paths"><thead><tr><th scope="col">パス</th><th scope="col">内容</th></tr></thead><tbody>${g.rows.map((r) => `<tr><td>${cell(r)}</td><td>${esc(r.desc)}</td></tr>`).join('')}</tbody></table></div>
+</div>`).join('\n');
+  return `<section id="pages" aria-labelledby="h-pages" style="--c:${w.color}">
+<h2 id="h-pages">画面の一覧</h2>${w.pagesNote ? `<p class="note">${esc(w.pagesNote)}</p>` : ''}
+<div class="tabs" role="tablist" aria-label="画面の一覧のグループ" hidden>${tabs}</div>
+${panels}
+</section>
+<script src="../tabs.js" defer></script>`;
+}
+
 function work(w) {
   const play = playUrl(w);
   const nav = WORKS.map((x) => `<li${x === w ? ' aria-current="page"' : ''}><a href="../${x.id}/">${emblem(x)}<span>${esc(x.name)}</span></a></li>`).join('');
@@ -104,6 +124,7 @@ function work(w) {
   <main>
     <p class="summary">${esc(w.summary)}</p>
     ${w.sections.map(section).join('')}
+    ${pages(w)}
     ${related}
     <section><h2>作り</h2><p>${esc(w.tech)}</p></section>
   </main>
@@ -122,6 +143,7 @@ export function build() {
   rmSync(new URL('wiki/', OUT), { recursive: true, force: true });
   mkdirSync(new URL('wiki/', OUT), { recursive: true });
   writeFileSync(new URL('wiki/style.css', OUT), css);
+  writeFileSync(new URL('wiki/tabs.js', OUT), tabsJs);
   writeFileSync(new URL('wiki/index.html', OUT), index());
   for (const w of WORKS) {
     mkdirSync(new URL(`wiki/${w.id}/`, OUT), { recursive: true });

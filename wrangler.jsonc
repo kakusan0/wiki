@@ -6,6 +6,9 @@
   "build": { "command": "npm run build" },
   // 入口の Worker：/<作品>/… を見て、作品の Worker か画面のファイルに渡す
   "main": "worker/index.ts",
+  // wiki.infoapp.org だけで公開する。workers.dev とプレビューの URL には Cloudflare Access がかからないので止める
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page", "run_worker_first": true },
   "d1_databases": [
     // それぞれの作品のときに作った D1 を、そのまま付け直す（記録は残る）

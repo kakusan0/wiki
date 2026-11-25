@@ -44,12 +44,42 @@ test('作品のデータがそろっている', () => {
   }
 });
 
-test('作品の中のページへのボタンが出る（QR オーダーのページ一覧）', () => {
+test('QR オーダーのページに「画面の一覧」の表が出る（パスと内容）', () => {
   const html = read('wiki/qr-order/index.html');
-  assert.match(html, /<a class="btn" href="\/qr-order\/wiki"[^>]*>ページ一覧（\/qr-order\/wiki）<\/a>/);
-  for (const w of WORKS) for (const l of w.links ?? []) assert.ok(l.href.startsWith(`/${w.play}/`) && l.label, `${w.id} → ${l.href}`);
+  assert.match(html, /<section id="pages"[^>]*>\s*<h2[^>]*>画面の一覧<\/h2>/);
+  // 上のボタンは、同じページの一覧へ移る
+  assert.match(html, /<a class="btn" href="#pages">画面の一覧<\/a>/);
+  // 開ける画面はリンク、開けないもの（通知の受け口）は文字だけ
+  for (const href of ['/qr-order/', '/qr-order/guide/', '/qr-order/s/shop-001', '/qr-order/staff', '/qr-order/staff/login', '/qr-order/esl/p-001.jpg', '/qr-order/p/p-001'])
+    assert.ok(html.includes(`<a href="${href}">`), href);
+  assert.match(html, /<code>\/qr-order\/api\/stripe\/webhook<\/code>/);
+  assert.match(html, /<code>\/qr-order\/order\/&lt;注文ID&gt;<\/code>/);
+  for (const h of ['公式サイト・案内', 'お客様の画面', '店舗スタッフの画面', '電子棚札（ST-GR29000）', '外部サービスからの通知を受け取る URL'])
+    assert.ok(html.includes(`<h3>${h}</h3>`), h);
+  // 前のページ一覧（/qr-order/wiki、開くたびにパスキー）は使わない
+  assert.doesNotMatch(html, /\/qr-order\/wiki|開くたびにパスキー/);
+});
+
+test('画面の一覧はグループごとのタブで切り替えられる（スクリプトがなければ全部見える）', () => {
+  const html = read('wiki/qr-order/index.html');
+  const tabs = [...html.matchAll(/<button type="button" role="tab" id="tab-([\w-]+)" aria-controls="panel-\1" aria-selected="(true|false)"[^>]*>([^<]+)<\/button>/g)];
+  assert.deepEqual(tabs.map((t) => t[3]), ['公式サイト・案内', 'お客様の画面', '店舗スタッフの画面', '電子棚札（ST-GR29000）', '外部サービスからの通知を受け取る URL']);
+  assert.deepEqual(tabs.map((t) => t[2]), ['true', 'false', 'false', 'false', 'false']);
+  // タブの並びはスクリプトが出す（hidden）。パネルは最初から全部見える
+  assert.match(html, /<div class="tabs" role="tablist" aria-label="画面の一覧のグループ" hidden>/);
+  for (const t of tabs) assert.match(html, new RegExp(`<div role="tabpanel" id="panel-${t[1]}" aria-labelledby="tab-${t[1]}" tabindex="0">`));
+  assert.match(html, /<script src="\.\.\/tabs\.js" defer><\/script>/);
+  assert.ok(existsSync(new URL('wiki/tabs.js', dist)));
+});
+
+test('作品のページの一覧（pages）のデータがそろっている', () => {
+  for (const w of WORKS) for (const l of w.links ?? []) assert.ok((l.href.startsWith(`/${w.play}/`) || l.href.startsWith('#')) && l.label, `${w.id} → ${l.href}`);
+  for (const w of WORKS.filter((x) => x.pages)) for (const g of w.pages) {
+    assert.ok(g.h && g.rows.length, `${w.id} ${g.h}`);
+    for (const r of g.rows) assert.ok(r.path.startsWith(`/${w.play}/`) && r.desc && (!r.href || r.href.startsWith(`/${w.play}/`)), `${w.id} ${r.path}`);
+  }
 });
 
 test('文字はエスケープされる（< や & がそのまま入らない）', () => {
-  for (const w of WORKS) assert.doesNotMatch(read(`wiki/${w.id}/index.html`), /<script(?![^>]*>location)/);
+  for (const w of WORKS) assert.doesNotMatch(read(`wiki/${w.id}/index.html`), /<script(?![^>]*>location| src="\.\.\/tabs\.js")/);
 });
