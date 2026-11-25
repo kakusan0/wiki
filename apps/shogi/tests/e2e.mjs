@@ -76,9 +76,10 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
   await step(`${label}：対局を動画で保存する`, async () => {
     // 「つづきから」の 4 手の対局で、正方形・はやい・小さめを作る
     await page.click('#video');
-    await page.getByRole('dialog', { name: '動画で保存' }).waitFor();
-    await page.getByText('正方形').click();
-    await page.getByText('はやい').click();
+    const dlg = page.getByRole('dialog', { name: '動画で保存' });
+    await dlg.waitFor();
+    await dlg.getByText('正方形').click();
+    await dlg.getByText('はやい').click();
     if (!(await page.locator('#video-small').isChecked())) await page.locator('#video-small').check();
     await noOverflow();
     await page.click('#video-make');
@@ -95,10 +96,42 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
     assert(/^shogi-\d{4}-\d\d-\d\d-4te\.(webm|mp4)$/.test(dl.suggestedFilename()), `ファイル名 ${dl.suggestedFilename()}`);
     // 縦長も作れる
     await page.getByRole('button', { name: '作り直す' }).click();
-    await page.getByText('縦長 9:16').click();
+    await dlg.getByText('縦長 9:16').click();
     await page.click('#video-make');
     await page.locator('#video-save').waitFor({ timeout: 60000 });
     await page.getByRole('button', { name: '閉じる' }).click();
+  });
+
+  await step(`${label}：対局を再生する（自動で進む・1 手ずつ・速さ・キー）`, async () => {
+    // 「つづきから」の 4 手の対局
+    const pos = () => page.locator('.replay-pos').innerText();
+    const on = () => page.locator('.kifu .moves li.on').innerText();
+    await page.getByRole('button', { name: 'はやい' }).click();
+    await page.click('#replay');
+    assert((await page.locator('#replay').innerText()).includes('停止'), '再生中は停止ボタン');
+    await page.waitForFunction(() => document.querySelector('.replay-pos')?.textContent?.startsWith('2 手目'), null, { timeout: 5000 });
+    assert((await on()).startsWith('2. △3四歩'), `棋譜の一覧も一緒に進む：${await on()}`);
+    await page.waitForFunction(() => document.querySelector('.replay-pos')?.textContent?.includes('（最新）'), null, { timeout: 10000 });
+    assert((await page.locator('#replay').innerText()).includes('再生'), '最後まで来たら止まる');
+    await noOverflow();
+    // 1 手ずつ
+    await page.getByRole('button', { name: '1 手戻る' }).click();
+    assert((await pos()).startsWith('3 手目'), await pos());
+    await page.getByRole('button', { name: '開始局面へ' }).click();
+    assert((await pos()).startsWith('開始局面'), await pos());
+    // キー（PC）：→ で進む、スペースで再生、← で戻ると止まる
+    if (label === 'PC') {
+      await page.locator('body').click({ position: { x: 2, y: 2 } });
+      await page.keyboard.press('ArrowRight');
+      assert((await pos()).startsWith('1 手目'), await pos());
+      await page.keyboard.press(' ');
+      assert((await page.locator('#replay').innerText()).includes('停止'), 'スペースで再生');
+      await page.keyboard.press('ArrowLeft');
+      assert((await page.locator('#replay').innerText()).includes('再生'), '手で動かすと止まる');
+    }
+    await page.getByRole('button', { name: '最新の局面へ' }).click();
+    assert((await pos()).includes('（最新）'), await pos());
+    await page.getByRole('button', { name: 'ふつう' }).click();
   });
 
   await step(`${label}：対局を解析する（評価値・最善手・悪手の印）`, async () => {
