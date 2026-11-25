@@ -20,11 +20,19 @@ Copy-Item -Path (Join-Path $PSScriptRoot 'collect.ps1') -Destination $Dir -Force
 
 Write-Host ''
 Write-Host '=== 回線速度の記録：設定 ===' -ForegroundColor Cyan
-$endpoint = Read-Host '結果を送る先の URL（例：https://netspeed.あなたの名前.workers.dev）'
+# 前に入れた設定（config.json）があれば、Enter だけでそのまま使う（鍵を毎回入れなくてよい）
+$cfgPath = Join-Path $Dir 'config.json'
+$old = $null
+if (Test-Path $cfgPath) { try { $old = Get-Content -Path $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $old = $null } }
+$hint = if ($old.endpoint) { "（Enter で今のまま：$($old.endpoint)）" } else { '（例：https://wiki.infoapp.org/netspeed）' }
+$endpoint = Read-Host "結果を送る先の URL$hint"
+if ($endpoint.Trim() -eq '' -and $old.endpoint) { $endpoint = $old.endpoint }
 $endpoint = $endpoint.Trim().TrimEnd('/')
 if ($endpoint -notmatch '^https://') { Write-Host 'https:// から始まる URL を入れてください。' -ForegroundColor Yellow; exit 1 }
-$sec = Read-Host '送信用の鍵（Cloudflare に登録した INGEST_TOKEN と同じもの。画面には出ません）' -AsSecureString
+$keep = if ($old.token) { '。Enter で今の鍵のまま' } else { '' }
+$sec = Read-Host "送信用の鍵（Cloudflare に登録した NETSPEED_INGEST_TOKEN と同じもの。画面には出ません$keep）" -AsSecureString
 $token = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+if ($token -eq '' -and $old.token) { $token = $old.token }
 if ($token.Length -lt 16) { Write-Host '鍵が短すぎます（16 文字以上）。' -ForegroundColor Yellow; exit 1 }
 
 $cfg = [ordered]@{
@@ -36,7 +44,6 @@ $cfg = [ordered]@{
   fullEveryMin = 120                                 # 確かめ用は 2 時間ごと
   fullOffsetMin = (Get-Random -Minimum 0 -Maximum 120)
 }
-$cfgPath = Join-Path $Dir 'config.json'
 ($cfg | ConvertTo-Json) | Set-Content -Path $cfgPath -Encoding UTF8
 
 # 設定（鍵を含む）は、自分と SYSTEM と管理者だけが読めるようにする
