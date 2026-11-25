@@ -11,5 +11,5 @@
     "types": []
   },
   "include": ["src/worker", "src/engine"],
-  "exclude": ["src/engine/worker.ts"]
+  "exclude": ["src/engine/worker.ts", "src/engine/analysis-worker.ts"]
 }
