@@ -58,8 +58,9 @@ Worker の「設定」→「変数とシークレット」に、種類「シー�
    ```
 
 4. 次の 2 つを聞かれるので入れます。
-   - 送り先の URL：Cloudflare に表示される Worker の URL（例：`https://netspeed.あなたの名前.workers.dev`）
-   - 送信用の鍵：手順 3 の `INGEST_TOKEN`
+   - 送り先の URL：`https://wiki.infoapp.org/netspeed`（作品 wiki の中の netspeed。wiki は Cloudflare Access で守っていますが、記録の受け口 `/netspeed/api/ingest` だけは Access を通さず、鍵で守ります）
+   - 送信用の鍵：wiki の Worker のシークレット `NETSPEED_INGEST_TOKEN`
+   - 2 回目からは、前の設定（`%LOCALAPPDATA%\netspeed\config.json`）が残っていれば、どちらも Enter だけで今のまま使えます。
 5. 試しに 1 回測って送り、タスク スケジューラに「毎分」で登録します。
    - ログインしていなくても、画面を出さずに動きます。
    - スリープしない設定にするかも聞かれます。
