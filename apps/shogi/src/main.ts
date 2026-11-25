@@ -6,6 +6,8 @@ import { Position, isDrop, mDrop, mFrom, mPromo, mTo, mkMove, type Move } from '
 import { HANDICAPS, KANJI, MOVES, NAME, RULESETS, canPromoteType, type Ruleset } from './engine/rules';
 import { mateFirstMoves, solve } from './engine/tsume';
 import { askMove, cancelThinking } from './ui/ai-client';
+import { MARK_NAMES, MARK_SIGNS, isMateScore, reviewMoves, scoreLabel, scoreText, senteScore, type MoveReview, type PlyEval } from './engine/analysis';
+import { startAnalysis, type AnalysisJob } from './ui/analysis-client';
 import { renderBoard, targetsOf, type BoardView } from './ui/board';
 import { h } from './ui/dom';
 import { renderOnlineEntry, onlineSession, type OnlineSession } from './ui/online';
@@ -38,7 +40,10 @@ interface Session {
   tsume?: Tsume;
   hint?: Move | null;
   names: [string, string];
+  analysis?: Analysis;
 }
+// 解析の結果。moves は解析を始めたときの棋譜（evals[k] は k 手目のあとの局面）
+interface Analysis { moves: Move[]; evals: PlyEval[]; job: AnalysisJob | null }
 let session: Session | null = null;
 let screen: 'title' | 'game' | 'tsume-list' | 'practice' | 'online' = 'title';
 
@@ -48,8 +53,14 @@ function saveGame() {
   store(SAVE_KEY, g.result ? null : { mode: session.mode, rules: g.rules.id, start: g.startSfen, moves: g.moves, mySide: session.mySide, level: session.level, flipped: session.flipped, autoFlip: session.autoFlip });
 }
 
+function stopAnalysis(s: Session | null) {
+  s?.analysis?.job?.stop();
+  if (s?.analysis) s.analysis.job = null;
+}
+
 function startGame(mode: Mode, rules: Ruleset, startSfen: string, opts: Partial<Session> = {}) {
   cancelThinking();
+  stopAnalysis(session);
   const game = new Game(rules, startSfen);
   session = {
     mode, game, mySide: null, level: settings.level, flipped: false, autoFlip: false, selected: null, view: null,
@@ -182,7 +193,7 @@ function render() {
 
 function header(title: string, back = true) {
   return h('header', { class: 'top' },
-    back ? h('button', { class: 'btn sm', onclick: () => { cancelThinking(); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
+    back ? h('button', { class: 'btn sm', onclick: () => { cancelThinking(); stopAnalysis(session); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
     h('b', {}, title),
     h('a', { class: 'link', href: '/rules.html', target: '_blank', rel: 'noopener' }, '遊び方'));
 }
@@ -253,6 +264,8 @@ function resultText(r: Result, g: Game, s: Session): string {
 
 function renderGame(s: Session) {
   const g = s.game;
+  // 待ったなどで棋譜が変わったら、古い解析は捨てる（手が増えただけなら、そこまでの結果は使える）
+  if (s.analysis && (s.analysis.moves.length > g.record.length || s.analysis.moves.some((m, i) => g.moves[i] !== m))) { stopAnalysis(s); s.analysis = undefined; }
   // 棋譜で過去の局面を見ているとき
   const viewGame = s.view != null ? Game.fromMoves(g.rules, g.startSfen, g.moves.slice(0, s.view)) : g;
   const pos = viewGame.pos;
@@ -270,6 +283,13 @@ function renderGame(s: Session) {
     turnLabel: status,
   };
   if (s.hint != null) view.targets = new Set([mTo(s.hint)]);
+  // 解析の最善手を盤に光らせる（指せないときだけ。過去の局面や終局後）
+  const shown = s.view ?? g.record.length;
+  const best = !canAct ? s.analysis?.evals[shown]?.best ?? null : null;
+  if (best != null && s.analysis && viewGame.pos.isLegal(best)) {
+    view.targets = new Set([mTo(best)]);
+    view.selected = isDrop(best) ? { drop: mDrop(best) } : { from: mFrom(best) };
+  }
   const modeName = s.mode === 'cpu' ? `コンピューター対戦（${LEVEL_NAMES[s.level]}）` : s.mode === 'local' ? '二人で対戦' : s.mode === 'online' ? 'オンライン対戦' : s.tsume!.title;
   const undoN = s.mode === 'cpu' ? (g.pos.side === s.mySide ? 2 : 1) : 1;
   const side = h('aside', { class: 'side' },
@@ -297,18 +317,34 @@ function renderGame(s: Session) {
         } }, '投了') : null,
         s.mode === 'online' && g.result ? h('button', { class: 'btn primary', id: 'rematch', disabled: !!onlineGame?.state().rematch[s.mySide ?? 0], onclick: () => onlineGame?.rematch() }, 'もう一局') : null,
         h('button', { class: 'btn', onclick: () => { s.flipped = !s.flipped; render(); } }, '盤を回す'))),
-    renderKifu(s));
+    renderKifu(s), renderAnalysis(s));
+  // 描き直しても棋譜の一覧のスクロール位置を保つ（解析中は何度も描き直す）
+  const scroll = document.querySelector('.kifu .moves')?.scrollTop ?? null;
   app.replaceChildren(h('div', { class: 'game' }, header(modeName), h('main', { class: 'layout' }, h('div', { class: 'main-col' }, renderBoard(view)), side)));
+  const list = document.querySelector('.kifu .moves');
+  if (list && scroll != null) list.scrollTop = scroll;
+}
+
+function reviews(s: Session): MoveReview[] {
+  const a = s.analysis;
+  if (!a) return [];
+  return reviewMoves(a.evals, a.moves, s.game.startSfen.split(/\s+/)[1] === 'w' ? 1 : 0);
 }
 
 function renderKifu(s: Session): HTMLElement {
   const g = s.game;
+  const rv = reviews(s);
   return h('section', { class: 'panel kifu' },
     h('h2', {}, `棋譜（${g.record.length} 手）`),
     h('ol', { class: 'moves' },
       h('li', { class: s.view === 0 ? 'on' : '' }, h('button', { onclick: () => { s.view = 0; render(); } }, '開始局面')),
-      g.record.map((r, i) => h('li', { class: s.view === i + 1 ? 'on' : '' },
-        h('button', { onclick: () => { s.view = i + 1 === g.record.length ? null : i + 1; render(); } }, `${i + 1}. ${r.name}${r.check ? '（王手）' : ''}`)))),
+      g.record.map((r, i) => {
+        const m = rv[i]?.mark;
+        const sign = m ? MARK_SIGNS[m] : '';
+        return h('li', { class: `${s.view === i + 1 ? 'on' : ''}${m ? ` mark-${m}` : ''}` },
+          h('button', { onclick: () => { s.view = i + 1 === g.record.length ? null : i + 1; render(); }, title: m ? MARK_NAMES[m] || undefined : undefined },
+            `${i + 1}. ${r.name}${r.check ? '（王手）' : ''}`, sign ? h('b', { class: 'mark' }, sign) : null));
+      })),
     h('div', { class: 'btns' },
       s.view != null ? h('button', { class: 'btn sm', onclick: () => { s.view = null; render(); } }, '最新の局面へ') : null,
       h('button', { class: 'btn sm', onclick: () => { void navigator.clipboard?.writeText(g.kif(s.names)); s.message = '棋譜（KIF 形式）をコピーしました'; render(); } }, '棋譜をコピー'),
@@ -321,6 +357,116 @@ function renderKifu(s: Session): HTMLElement {
           flipped: s.flipped, viewPly: s.view,
         });
       } }, '動画で保存')));
+}
+
+// ---------- 解析 ----------
+// 1 局面に使う時間（ミリ秒）。小さい盤は早く深く読めるので短く
+const analysisMs = (g: Game) => (g.rules.id === 'standard' ? 400 : 200);
+const canAnalyze = (s: Session) => s.mode !== 'tsume' && s.game.record.length > 0 && (s.mode !== 'online' || !!s.game.result);
+
+function runAnalysis(s: Session) {
+  stopAnalysis(s);
+  const g = s.game;
+  const moves = g.moves;
+  const a: Analysis = { moves, evals: [], job: null };
+  s.analysis = a;
+  a.job = startAnalysis(g.startSfen, g.rules.id, moves, analysisMs(g), (k, ev) => {
+    a.evals[k] = ev;
+    if (session === s && s.analysis === a) render();
+  }, () => {
+    a.job = null;
+    if (session === s && s.analysis === a) render();
+  });
+  render();
+}
+
+// 評価値のグラフ（先手が上、後手が下）。押すとその局面へ
+function evalGraph(s: Session, a: Analysis): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 300, H = 120, CAP = 2000;
+  const n = Math.max(a.moves.length, 1);
+  const x = (k: number) => (k / n) * W;
+  const y = (v: number) => H / 2 - (Math.max(-CAP, Math.min(CAP, v)) / CAP) * (H / 2 - 4);
+  const el = (tag: string, attrs: Record<string, string | number>) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    return e;
+  };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'eval-graph', role: 'img', 'aria-label': '評価値のグラフ。上が先手有利、下が後手有利' }) as SVGSVGElement;
+  svg.append(el('rect', { x: 0, y: 0, width: W, height: H / 2, class: 'eg-sente' }), el('rect', { x: 0, y: H / 2, width: W, height: H / 2, class: 'eg-gote' }));
+  svg.append(el('line', { x1: 0, y1: H / 2, x2: W, y2: H / 2, class: 'eg-axis' }));
+  const startSide = s.game.startSfen.split(/\s+/)[1] === 'w' ? 1 : 0;
+  const pts: string[] = [];
+  a.evals.forEach((e, k) => {
+    if (!e) return;
+    const side = ((startSide + k) % 2) as 0 | 1;
+    const v = senteScore(e, side);
+    pts.push(`${x(k).toFixed(1)},${y(isMateScore(v) ? Math.sign(v) * CAP : v).toFixed(1)}`);
+  });
+  if (pts.length) {
+    svg.append(el('polygon', { points: `0,${H / 2} ${pts.join(' ')} ${pts.at(-1)!.split(',')[0]},${H / 2}`, class: 'eg-area' }));
+    svg.append(el('polyline', { points: pts.join(' '), class: 'eg-line' }));
+  }
+  // 悪手の印
+  reviews(s).forEach((r) => {
+    if (r.mark !== 'mistake' && r.mark !== 'blunder') return;
+    const e = a.evals[r.ply];
+    if (!e) return;
+    const v = senteScore(e, ((startSide + r.ply) % 2) as 0 | 1);
+    svg.append(el('circle', { cx: x(r.ply), cy: y(isMateScore(v) ? Math.sign(v) * CAP : v), r: 3.5, class: `eg-dot ${r.mark}` }));
+  });
+  const shown = s.view ?? s.game.record.length;
+  if (shown <= a.moves.length) svg.append(el('line', { x1: x(shown), y1: 0, x2: x(shown), y2: H, class: 'eg-now' }));
+  svg.addEventListener('click', (ev) => {
+    const box = svg.getBoundingClientRect();
+    const k = Math.round(((ev.clientX - box.left) / box.width) * n);
+    const ply = Math.max(0, Math.min(a.moves.length, k));
+    s.view = ply === s.game.record.length ? null : ply;
+    render();
+  });
+  return svg;
+}
+
+function renderAnalysis(s: Session): HTMLElement | null {
+  const g = s.game;
+  if (!canAnalyze(s) && !s.analysis) return null;
+  const a = s.analysis;
+  const total = (a?.moves.length ?? g.record.length) + 1;
+  const doneN = a ? a.evals.filter(Boolean).length : 0;
+  const running = !!a?.job;
+  const stale = !!a && !running && a.moves.length < g.record.length;
+  const secs = Math.ceil(((g.record.length + 1) * analysisMs(g)) / 1000);
+  const head = h('div', { class: 'btns' },
+    running ? h('button', { class: 'btn sm', onclick: () => { stopAnalysis(s); render(); } }, '解析をやめる')
+      : canAnalyze(s) && (!a || stale || doneN < total) ? h('button', { class: 'btn sm primary', id: 'analyze', onclick: () => runAnalysis(s) }, a ? 'もう一度解析する' : `解析する（約 ${secs} 秒）`) : null,
+    running ? h('span', { class: 'note', role: 'status' }, `解析中… ${doneN}/${total} 局面`) : null);
+  if (!a) {
+    return h('section', { class: 'panel analysis' }, h('h2', {}, '解析'),
+      h('p', { class: 'note' }, 'コンピューターが一局をふり返り、局面ごとの形勢（評価値）と最善手、悪手・疑問手を調べます。'), head);
+  }
+  const startSide = g.startSfen.split(/\s+/)[1] === 'w' ? 1 : 0;
+  const rv = reviews(s);
+  const shown = s.view ?? g.record.length;
+  const e = a.evals[shown];
+  const v = e ? senteScore(e, ((startSide + shown) % 2) as 0 | 1) : null;
+  const r = shown >= 1 ? rv[shown - 1] : undefined;
+  const count = (side: 0 | 1, m: MoveReview['mark']) => rv.filter((x) => x.side === side && x.mark === m).length;
+  const here = [
+    v != null ? h('p', { class: 'eval-now' }, h('b', {}, `評価値 ${scoreText(v)}`), `（${scoreLabel(v)}）`) : shown <= a.moves.length ? h('p', { class: 'note' }, 'この局面はまだ解析していません') : null,
+    r && g.record[shown - 1] ? h('p', { class: `review mark-${r.mark}` }, `${shown}. ${g.record[shown - 1].name}：`,
+      r.mark === 'best' ? '最善手' : r.mark === 'good' ? `よい手${r.bestName ? `（最善は ${r.bestName}）` : ''}` : `${MARK_NAMES[r.mark]}。最善は ${r.bestName ?? '—'}（${Math.round(r.loss)} 点の損）`) : null,
+    e?.bestName ? h('p', { class: 'note' }, `この局面の最善手：${e.bestName}${!canHumanAct(s) ? '（盤で光っている手）' : ''}`) : null,
+  ];
+  return h('section', { class: 'panel analysis' },
+    h('h2', {}, '解析'),
+    evalGraph(s, a),
+    h('p', { class: 'note eg-legend' }, '上が先手有利、下が後手有利。グラフを押すとその局面へ。'),
+    ...here,
+    doneN >= total ? h('table', { class: 'tally' },
+      h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, '疑問手'), h('th', {}, '悪手'), h('th', {}, '大悪手'))),
+      h('tbody', {}, ([0, 1] as const).map((sd) => h('tr', {}, h('th', {}, `${sd === 0 ? '▲' : '△'}${s.names[sd]}`),
+        h('td', {}, String(count(sd, 'dubious'))), h('td', {}, String(count(sd, 'mistake'))), h('td', {}, String(count(sd, 'blunder'))))))) : null,
+    head);
 }
 
 // ---------- 詰将棋の一覧 ----------

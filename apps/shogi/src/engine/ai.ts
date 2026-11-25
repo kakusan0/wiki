@@ -47,7 +47,7 @@ interface TTEntry { depth: number; score: number; flag: 0 | 1 | 2; move: Move } 
 
 export interface SearchResult { move: Move | null; score: number; depth: number; nodes: number }
 
-export function search(root: Position, opts: { level?: Level; timeMs?: number; maxDepth?: number; random?: () => number } = {}): SearchResult {
+export function search(root: Position, opts: { level?: Level; timeMs?: number; maxDepth?: number; random?: () => number; full?: boolean } = {}): SearchResult {
   const conf = { ...LEVELS[opts.level ?? 'intermediate'] };
   if (opts.timeMs != null) conf.timeMs = opts.timeMs;
   if (opts.maxDepth != null) conf.maxDepth = opts.maxDepth;
@@ -61,7 +61,8 @@ export function search(root: Position, opts: { level?: Level; timeMs?: number; m
 
   const rootMoves = p.legalMoves();
   if (!rootMoves.length) return { move: null, score: -MATE, depth: 0, nodes: 0 };
-  if (rootMoves.length === 1) return { move: rootMoves[0], score: 0, depth: 0, nodes: 0 };
+  // 手が 1 つしかなければ考えずに指す（解析のときは点数がほしいので考える）
+  if (rootMoves.length === 1 && !opts.full) return { move: rootMoves[0], score: 0, depth: 0, nodes: 0 };
 
   const order = (moves: Move[], ttMove: Move | null, ply: number) => {
     const k = killers[ply] ?? [];

@@ -101,6 +101,29 @@ for (const [label, ctxOpts] of [['PC', { viewport: { width: 1280, height: 860 } 
     await page.getByRole('button', { name: '閉じる' }).click();
   });
 
+  await step(`${label}：対局を解析する（評価値・最善手・悪手の印）`, async () => {
+    // 「つづきから」の 4 手（▲2二角成 で角を交換）の対局
+    await page.click('#analyze');
+    await page.getByText('解析中').waitFor();
+    await page.locator('.analysis .tally').waitFor({ timeout: 30000 });
+    assert(await page.locator('.analysis .eval-graph polyline').count() === 1, 'グラフ');
+    await noOverflow();
+    // 過去の局面を開くと、その手の評価と最善手が出て、盤に最善手が光る
+    await page.locator('.kifu .moves li').nth(1).click();
+    await page.locator('.analysis .review').waitFor();
+    assert(/^1\. ▲7六歩：/.test(await page.locator('.analysis .review').innerText()), '1 手目の評価');
+    assert(/最善手：△/.test(await page.locator('.analysis').innerText()), '最善手');
+    assert(await page.locator('.grid .cell.target').count() === 1, '最善手が光る');
+    // グラフを押すと局面が変わる
+    const g = await page.locator('.analysis .eval-graph').boundingBox();
+    await page.mouse.click(g.x + 2, g.y + g.height / 2);
+    assert(await page.locator('.kifu .moves li.on').innerText() === '開始局面', 'グラフで開始局面へ');
+    // 待ったで棋譜が変わると、解析は捨てる
+    await page.getByRole('button', { name: '最新の局面へ' }).click();
+    await page.getByRole('button', { name: '待った' }).click();
+    assert(await page.locator('.analysis .eval-graph').count() === 0, '古い解析は消える');
+  });
+
   await step(`${label}：コンピューターと対局`, async () => {
     await title();
     await page.getByRole('button', { name: 'コンピューターと対局する' }).click();

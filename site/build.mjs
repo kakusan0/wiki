@@ -95,6 +95,7 @@ function work(w) {
     ${tags(w)}
     <p class="actions">
       ${play ? `<a class="btn primary" href="${play}">${w.kind === 'game' ? '遊ぶ' : '開く'}</a>` : `<span class="btn off" title="公開先は準備中です">公開先は準備中</span>`}
+      ${(w.links ?? []).map((l) => `<a class="btn" href="${esc(l.href)}"${l.note ? ` title="${esc(l.note)}"` : ''}>${esc(l.label)}</a>`).join('\n      ')}
       <a class="btn" href="${repoUrl(w)}">コード（GitHub）</a>
     </p>
   </div>
