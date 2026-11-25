@@ -62,6 +62,7 @@ npm run dev -w apps/shiomi
 1. `apps/<作品>/` に置き、`scripts/apps.mjs` に足します。
 2. サーバーがあるなら、`worker/index.ts` の `APPS` と `wrangler.jsonc` に足します。
 3. wiki のページは `site/works.mjs` に書きます。見た目は `site/style.css` です。
+4. ゲームの作りは `apps/<作品>/docs/design.md`（設計書）に書きます。作りを変えたら、設計書も直します。
 
 ## 公開
 
