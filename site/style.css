@@ -69,6 +69,23 @@ th, td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var
 thead th { font-size: 12px; color: var(--dim); }
 kbd { white-space: nowrap; font-family: var(--num); font-weight: 700; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; font-size: 14px; }
 .note { color: var(--dim); font-size: 14px; }
+/* 画面の一覧（パスと内容）：パスは折り返して、スマホでも横に広がらない */
+#pages { scroll-margin-top: 12px; }
+#pages h3 { font-size: 16px; margin: 22px 0 6px; }
+/* タブ：横に並べ、入りきらなければ折り返す。選んだタブは作品の色で示す */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.tabs [role="tab"] { font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.tabs [role="tab"]:hover { border-color: var(--dim); }
+.tabs [role="tab"][aria-selected="true"] { background: var(--c, var(--ink)); border-color: var(--c, var(--ink)); color: #fff; }
+.tabs [role="tab"]:focus-visible, #pages [role="tabpanel"]:focus-visible { outline: 3px solid var(--c, var(--ink)); outline-offset: 2px; }
+/* タブで切り替えるときは、パネルの見出しはタブと重なるので隠す */
+.has-tabs [role="tabpanel"] h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.has-tabs [role="tabpanel"] { padding-top: 8px; }
+#pages .note { margin: 0 0 6px; max-width: 68ch; }
+table.paths { width: 100%; min-width: 0; table-layout: fixed; }
+table.paths td { vertical-align: top; overflow-wrap: anywhere; }
+table.paths td:first-child { width: 38%; font-family: var(--num); font-size: 14px; }
+table.paths code { font-size: 14px; background: var(--chip); border-radius: 6px; padding: 1px 6px; }
 aside { padding-block: 22px; }
 aside h2 { font-size: 14px; color: var(--dim); margin: 0 0 8px; }
 .side { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 12px; }
@@ -83,5 +100,11 @@ aside h2 { font-size: 14px; color: var(--dim); margin: 0 0 8px; }
   .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
   aside { padding-top: 0; }
   .side { position: static; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  /* スマホ幅：パスの下に内容を並べる */
+  table.paths thead { display: none; }
+  table.paths, table.paths tbody, table.paths tr, table.paths td { display: block; width: auto; }
+  table.paths tr { border-bottom: 1px solid var(--line); padding: 8px 0; }
+  table.paths td { border: 0; padding: 0; }
+  table.paths td:first-child { width: auto; margin-bottom: 2px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }

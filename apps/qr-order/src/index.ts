@@ -8,7 +8,6 @@ import loginHtml from './login.html';
 import setupHtml from './setup.html';
 import displayHtml from './display.html';
 import guideStaffHtml from './guide-staff.html';
-import wikiHtml from './wiki.html';
 import { receiptHtml, returnAcceptedHtml } from './mail';
 import { renderEsl } from './esl';
 import {
@@ -59,7 +58,7 @@ type Env = {
   OFF_API_BASE?: string;
 };
 
-type Session = { id: string; username: string; role: 'admin' | 'staff'; /** パスキーで本人確認した時刻（ミリ秒） */ authAt: number };
+type Session = { id: string; username: string; role: 'admin' | 'staff'; };
 
 type OrderRow = {
   id: string;
@@ -985,7 +984,7 @@ async function readSession(c: C): Promise<Session | null> {
     .first<{ expires_at: string; id: string; email: string; role: Session['role']; active: number }>();
   // 無効化・削除されたアカウントは即時に使えなくなる
   if (!row || row.expires_at < nowIso() || row.active !== 1) return null;
-  return { id: row.id, username: row.email, role: row.role === 'admin' ? 'admin' : 'staff', authAt: new Date(row.expires_at).getTime() - SESSION_HOURS * 3600_000 };
+  return { id: row.id, username: row.email, role: row.role === 'admin' ? 'admin' : 'staff' };
 }
 
 async function startSession(c: C, staff: { email: string; role: string }) {
@@ -1215,14 +1214,9 @@ app.get('/guide/staff', async (c) => {
 });
 app.get('/guide/staff.html', (c) => c.redirect('/guide/staff', 301));
 
-// ページ一覧：開くたびにパスキーでの本人確認を求める（ログイン済みでも、確認から 5 分を過ぎていれば確認し直す）
-const WIKI_REAUTH_MS = 5 * 60_000;
-app.get('/wiki', async (c) => {
-  const session = await readSession(c);
-  if (!session || Date.now() - session.authAt > WIKI_REAUTH_MS) return c.redirect('/staff/login?reauth=1&next=' + encodeURIComponent(bp(c) + '/wiki'));
-  return c.html(wikiHtml, 200, { 'Cache-Control': 'private, no-store', 'X-Frame-Options': 'DENY', 'X-Robots-Tag': 'noindex' });
-});
-app.get('/wiki.html', (c) => c.redirect('/wiki', 301));
+// ページ一覧は作品 wiki の「画面の一覧」にある（wiki 全体を Cloudflare Access で守る）。パスの頭を付けないよう、絶対 URL で返す
+app.get('/wiki', (c) => c.redirect(new URL('/wiki/qr-order/#pages', c.req.url).href, 301));
+app.get('/wiki.html', (c) => c.redirect(new URL('/wiki/qr-order/#pages', c.req.url).href, 301));
 
 // 画面：未ログインならログイン画面へ
 app.use('/staff', async (c, next) => {
