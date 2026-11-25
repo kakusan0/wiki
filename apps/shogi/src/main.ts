@@ -64,6 +64,7 @@ function stopAnalysis(s: Session | null) {
 }
 
 function startGame(mode: Mode, rules: Ruleset, startSfen: string, opts: Partial<Session> = {}) {
+  stopReplay();
   cancelThinking();
   stopAnalysis(session);
   stopWatch(session);
@@ -142,6 +143,7 @@ function askPromotion(cands: Move[]) {
 
 function humanPlay(m: Move) {
   const s = session!;
+  stopReplay();
   s.selected = null;
   s.hint = null;
   if (s.mode === 'tsume') return tsumeMove(m);
@@ -201,7 +203,7 @@ function render() {
 
 function header(title: string, back = true) {
   return h('header', { class: 'top' },
-    back ? h('button', { class: 'btn sm', onclick: () => { cancelThinking(); stopAnalysis(session); stopWatch(session); if (location.search.includes('lishogi=')) history.replaceState(null, '', location.pathname); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
+    back ? h('button', { class: 'btn sm', onclick: () => { stopReplay(); cancelThinking(); stopAnalysis(session); stopWatch(session); if (location.search.includes('lishogi=')) history.replaceState(null, '', location.pathname); onlineGame?.leave(); onlineGame = null; session = null; screen = 'title'; render(); } }, '← もどる') : null,
     h('b', {}, title),
     h('a', { class: 'link', href: '/rules.html', target: '_blank', rel: 'noopener' }, '遊び方'));
 }
@@ -316,7 +318,7 @@ function renderGame(s: Session) {
       s.mode === 'watch' ? renderWatchInfo(s) : null,
       h('div', { class: 'btns' },
         s.mode === 'cpu' || s.mode === 'local' ? h('button', { class: 'btn', disabled: !g.record.length || s.mode === 'cpu' && g.record.length < undoN, onclick: () => {
-          cancelThinking(); s.thinking = false; g.undo(Math.min(undoN, g.record.length)); s.view = null; s.selected = null; if (s.mode === 'local' && s.autoFlip) s.flipped = g.pos.side === 1; saveGame(); render(); void cpuMove();
+          stopReplay(); cancelThinking(); s.thinking = false; g.undo(Math.min(undoN, g.record.length)); s.view = null; s.selected = null; if (s.mode === 'local' && s.autoFlip) s.flipped = g.pos.side === 1; saveGame(); render(); void cpuMove();
         } }, '待った') : null,
         s.mode === 'cpu' && !g.result ? h('button', { class: 'btn', disabled: !canAct, onclick: async () => {
           const r = await askMove(g.pos.toSfen(), g.rules.id, 'advanced', true);
@@ -338,12 +340,14 @@ function renderGame(s: Session) {
     renderKifu(s), renderAnalysis(s));
   // 描き直しても棋譜の一覧のスクロール位置を保つ（解析中は何度も描き直す）
   const scroll = document.querySelector('.kifu .moves')?.scrollTop ?? null;
-  app.replaceChildren(h('div', { class: 'game' }, header(modeName), h('main', { class: 'layout' }, h('div', { class: 'main-col' }, renderBoard(view)), side)));
+  app.replaceChildren(h('div', { class: 'game' }, header(modeName), h('main', { class: 'layout' }, h('div', { class: 'main-col' }, renderBoard(view), renderReplay(s)), side)));
   const list = document.querySelector('.kifu .moves');
   if (list && scroll != null) list.scrollTop = scroll;
   // 観戦中に新しい手が来たら、最新の局面を見ているときは棋譜の一覧のいちばん下を見せる
   if (list && s.watch && s.view == null && g.record.length !== s.watch.shown) list.scrollTop = list.scrollHeight;
   if (s.watch) s.watch.shown = g.record.length;
+  // 再生中は、棋譜の一覧で今の手が見えるようにする
+  if (replay && list) list.querySelector('li.on')?.scrollIntoView({ block: 'nearest' });
 }
 
 function reviews(s: Session): MoveReview[] {
@@ -358,16 +362,15 @@ function renderKifu(s: Session): HTMLElement {
   return h('section', { class: 'panel kifu' },
     h('h2', {}, `棋譜（${g.record.length} 手）`),
     h('ol', { class: 'moves' },
-      h('li', { class: s.view === 0 ? 'on' : '' }, h('button', { onclick: () => { s.view = 0; render(); } }, '開始局面')),
+      h('li', { class: s.view === 0 ? 'on' : '' }, h('button', { onclick: () => goto(s, 0) }, '開始局面')),
       g.record.map((r, i) => {
         const m = rv[i]?.mark;
         const sign = m ? MARK_SIGNS[m] : '';
         return h('li', { class: `${s.view === i + 1 ? 'on' : ''}${m ? ` mark-${m}` : ''}` },
-          h('button', { onclick: () => { s.view = i + 1 === g.record.length ? null : i + 1; render(); }, title: m ? MARK_NAMES[m] || undefined : undefined },
+          h('button', { onclick: () => goto(s, i + 1), title: m ? MARK_NAMES[m] || undefined : undefined },
             `${i + 1}. ${r.name}${r.check ? '（王手）' : ''}`, sign ? h('b', { class: 'mark' }, sign) : null));
       })),
     h('div', { class: 'btns' },
-      s.view != null ? h('button', { class: 'btn sm', onclick: () => { s.view = null; render(); } }, '最新の局面へ') : null,
       h('button', { class: 'btn sm', onclick: () => { void navigator.clipboard?.writeText(g.kif(s.names)); s.message = '棋譜（KIF 形式）をコピーしました'; render(); } }, '棋譜をコピー'),
       h('button', { class: 'btn sm', id: 'video', disabled: !g.record.length, onclick: async () => {
         // 動画の仕組みは押したときに読み込む（最初の表示を軽く）
@@ -379,6 +382,81 @@ function renderKifu(s: Session): HTMLElement {
         });
       } }, '動画で保存')));
 }
+
+// ---------- 再生（棋譜を 1 手ずつ自動で進める） ----------
+const SPEEDS = [{ ms: 2000, name: 'ゆっくり' }, { ms: 1000, name: 'ふつう' }, { ms: 500, name: 'はやい' }];
+let replayMs = 1000;
+let replay: { s: Session; timer: number } | null = null;
+
+function stopReplay() {
+  if (replay) { clearInterval(replay.timer); replay = null; }
+}
+
+// 局面を移る（手で移したときは再生を止める）。ply が最後の手より先なら最新の局面（null）
+function goto(s: Session, ply: number | null, keepReplay = false) {
+  if (!keepReplay) stopReplay();
+  const n = s.game.record.length;
+  s.view = ply == null || ply >= n ? null : Math.max(0, ply);
+  s.selected = null;
+  render();
+}
+
+function startReplay(s: Session) {
+  stopReplay();
+  if (!s.game.record.length) return;
+  if (s.view == null) s.view = 0; // 最新の局面からなら、はじめから
+  replay = { s, timer: window.setInterval(() => stepReplay(s), replayMs) };
+  render();
+}
+
+function stepReplay(s: Session) {
+  if (session !== s || screen !== 'game') { stopReplay(); return; }
+  const next = (s.view ?? s.game.record.length) + 1;
+  if (next >= s.game.record.length) { stopReplay(); goto(s, null, true); return; } // 最後まで来たら止める
+  goto(s, next, true);
+}
+
+function setReplaySpeed(s: Session, ms: number) {
+  replayMs = ms;
+  if (replay) {
+    clearInterval(replay.timer);
+    replay.timer = window.setInterval(() => stepReplay(s), replayMs);
+  }
+  render();
+}
+
+function renderReplay(s: Session): HTMLElement | null {
+  const n = s.game.record.length;
+  if (!n) return null;
+  const at = s.view ?? n;
+  const playing = replay?.s === s;
+  return h('section', { class: 'replay', 'aria-label': '再生' },
+    h('div', { class: 'replay-btns' },
+      h('button', { class: 'btn sm', 'aria-label': '開始局面へ', title: '開始局面へ', disabled: at === 0, onclick: () => goto(s, 0) }, '⏮'),
+      h('button', { class: 'btn sm', 'aria-label': '1 手戻る', title: '1 手戻る（←）', disabled: at === 0, onclick: () => goto(s, at - 1) }, '◀'),
+      h('button', { class: 'btn sm primary play', id: 'replay', title: '再生・停止（スペース）', onclick: () => { if (playing) { stopReplay(); render(); } else startReplay(s); } }, playing ? '⏸ 停止' : '▶ 再生'),
+      h('button', { class: 'btn sm', 'aria-label': '1 手進む', title: '1 手進む（→）', disabled: at >= n, onclick: () => goto(s, at + 1) }, '▶'),
+      h('button', { class: 'btn sm', 'aria-label': '最新の局面へ', title: '最新の局面へ', disabled: at >= n, onclick: () => goto(s, null) }, '⏭')),
+    h('div', { class: 'replay-info' },
+      h('span', { class: 'replay-pos' }, at === 0 ? `開始局面 / ${n} 手` : `${at} 手目 / ${n} 手${at < n ? '' : '（最新）'}`),
+      h('span', { class: 'chips', role: 'group', 'aria-label': '再生の速さ' }, SPEEDS.map((x) =>
+        h('button', { class: `btn sm${x.ms === replayMs ? ' on' : ''}`, 'aria-pressed': x.ms === replayMs ? 'true' : 'false', onclick: () => setReplaySpeed(s, x.ms) }, x.name)))));
+}
+
+// キーボード：← → で 1 手ずつ、スペースで再生・停止（対局の画面で、文字を入力していないとき）
+document.addEventListener('keydown', (e) => {
+  const s = session;
+  if (!s || screen !== 'game' || !s.game.record.length || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target as HTMLElement | null;
+  if (document.querySelector('.modal') || (t && (t.closest('input, textarea, select') || t.isContentEditable))) return;
+  const at = s.view ?? s.game.record.length;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); goto(s, at - 1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); goto(s, at + 1); }
+  else if (e.key === ' ' && !(t instanceof HTMLButtonElement)) {
+    e.preventDefault();
+    if (replay?.s === s) { stopReplay(); render(); } else startReplay(s);
+  }
+});
 
 // ---------- 解析 ----------
 // 1 局面に使う時間（ミリ秒）。小さい盤は早く深く読めるので短く
@@ -462,8 +540,7 @@ function evalGraph(s: Session, a: Analysis): SVGSVGElement {
     const box = svg.getBoundingClientRect();
     const k = Math.round(((ev.clientX - box.left) / box.width) * n);
     const ply = Math.max(0, Math.min(a.moves.length, k));
-    s.view = ply === s.game.record.length ? null : ply;
-    render();
+    goto(s, ply);
   });
   return svg;
 }

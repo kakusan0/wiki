@@ -178,3 +178,13 @@ h1, h2 { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .watch-info .live .dot { animation: none; } }
 .top-players { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .top-players li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; overflow-wrap: anywhere; }
+
+/* 再生 */
+.replay { margin-top: 10px; display: grid; gap: 8px; justify-items: center; }
+.replay-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.replay-btns .btn { min-width: 48px; font-size: 16px; }
+.replay-btns .play { min-width: 96px; }
+.replay-info { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: 14px; color: var(--sub); }
+.replay-info .chips { display: inline-flex; gap: 4px; }
+.replay-info .chips .btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.replay-pos { font-weight: 700; color: var(--ink); min-width: 9em; text-align: center; }
