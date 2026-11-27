@@ -108,11 +108,11 @@ export const WORKS = [
     // 作品の中のページへのボタン（同じサイトの中のパス）
     links: [{ href: '#pages', label: '画面の一覧' }],
     tagline: '店頭の QR を読んで、商品を選んで、その場で支払う',
-    tags: ['スマホ', '事前決済', 'お店の管理画面'],
-    summary: 'お客様は店頭の QR やバーコードを読み取って商品を選び、カード・Apple Pay・Google Pay・PayPay などで支払います。お店は管理画面で注文・年齢確認・返金・商品を扱います。',
+    tags: ['スマホ', '事前決済', 'お客様画面'],
+    summary: 'お客様は店頭の QR やバーコードを読み取って商品を選び、カード・Apple Pay・Google Pay・PayPay などで支払います。（店舗管理画面は専用の Android アプリへ分離しました。）',
     sections: [
-      { h: 'お客様', list: ['QR またはバーコードを読み取るとカートに入る', '支払い後に購入の証明（注文番号・明細）。メールでも受け取れる'] },
-      { h: 'お店', list: ['注文の確認、年齢確認、返金（全額・一部）、商品の登録（バーコード読み取り）', 'スタッフはパスキーでログイン（パスワードなし）', '電子棚札の画像と QR', '商品を渡してよいのは「支払済」の注文だけ（決済の成功と金額をサーバーで確かめてから）'] },
+      { h: 'お客様', list: ['QR またはバーコードを読み取るとカートに入る', '支払い後に購入の証明（注文番号・明細）。メールでも受け取れる', '返品・交換の申し込みや注文ごとの問い合わせチャットに対応'] },
+      { h: '電子棚札・決済', list: ['電子棚札の画像と QR を配信', '支払済への反映は Stripe の決済成功と金額一致をサーバーで確認した注文のみ'] },
     ],
     // 画面の一覧（パスと内容）。path が開けるものは href を付ける。<店舗ID> などは店舗・注文ごとに変わる
     pagesNote: '<店舗ID> や <注文ID> の部分は、店舗・注文ごとに変わります（いまの店舗 ID は shop-001）。',
@@ -131,14 +131,7 @@ export const WORKS = [
         { path: '/qr-order/order/<注文ID>', desc: '購入の証明（支払い完了の画面）。支払い後の画面や購入完了メールから開く' },
         { path: '/qr-order/return/<注文ID>', desc: '返品・交換の申し込み。購入完了メールや購入の証明の画面から開く' },
       ] },
-      { id: 'staff', h: '店舗スタッフの画面', rows: [
-        { path: '/qr-order/guide/staff', href: '/qr-order/guide/staff', desc: '店舗スタッフ向けの使い方。ログインが必要（未ログインならログイン画面へ移り、ログイン後にこのページを開く）' },
-        { path: '/qr-order/staff', href: '/qr-order/staff', desc: '管理画面（注文・商品・返品・問い合わせ・店舗 QR・スタッフ・パスキー）。ログインが必要' },
-        { path: '/qr-order/staff/login', href: '/qr-order/staff/login', desc: 'ログイン（パスキー）' },
-        { path: '/qr-order/staff/setup', href: '/qr-order/staff/setup', desc: '初回の設定（メールの確認コードとパスキーの登録）' },
-        { path: '/qr-order/staff/display', href: '/qr-order/staff/display', desc: '店頭掲示用の QR 表示画面。ログインが必要' },
-      ] },
-      { id: 'esl', h: '電子棚札（ST-GR29000）', note: 'OpenEPaperLink の基地局と、棚札の QR コードが使うアドレスです。設定の手順は apps/qr-order/docs/esl-setup.md、画像 URL の一覧は管理画面の「店舗 QR」にあります。', rows: [
+      { id: 'esl', h: '電子棚札（ST-GR29000）', note: 'OpenEPaperLink の基地局と、棚札の QR コードが使うアドレスです。設定の手順は apps/qr-order/docs/esl-setup.md にあります。', rows: [
         { path: '/qr-order/esl/<商品ID>.jpg', href: '/qr-order/esl/p-001.jpg', desc: '棚札に表示する画像（296×128、商品の QR・商品名・価格）。基地局の「7 - Image URL」に設定する' },
         { path: '/qr-order/p/<商品ID>', href: '/qr-order/p/p-001', desc: '棚札の QR コードに入っている短いアドレス。開くと、その商品をカートに入れたお客様画面に移る' },
       ] },

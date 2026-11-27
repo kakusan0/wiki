@@ -30,15 +30,9 @@ android {
         manifestPlaceholders["hostName"] = twaHost
     }
 
-    // 2 種類のアプリを同じプロジェクトから作る
+    // お客様用アプリのみをビルドする（店舗管理アプリは kakusan0/qr-order に分離）
     flavorDimensions += "audience"
     productFlavors {
-        create("staff") {
-            dimension = "audience"
-            applicationId = "dev.workers.gmakihiro.qrorder.staff"
-            manifestPlaceholders["defaultUrl"] = "https://$twaHost/staff"
-            manifestPlaceholders["pathPrefix"] = "/staff"
-        }
         create("customer") {
             dimension = "audience"
             applicationId = "dev.workers.gmakihiro.qrorder.customer"

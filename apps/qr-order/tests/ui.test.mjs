@@ -86,53 +86,15 @@ try {
   await p.goto(B + '/contact/shop-001'); await p.waitForTimeout(500);
   rec('U', '注文なしで問い合わせ画面を開くと、開き方を案内する', '送信欄を出さず案内', await p.locator('#form').isHidden(), (await p.locator('#error').innerText()).slice(0, 30));
 
-  // ===== 管理画面 =====
-  const st = await staffContext({ viewport: { width: 1280, height: 850 }, permissions: ['clipboard-read', 'clipboard-write'] });
-  const s = await st.newPage(); watch(s);
-  await openStaff(s, 'returns'); await s.waitForSelector('#returns .order'); await s.waitForTimeout(500);
-  const thumbs = await s.locator('#returns .order').first().locator('.thumb-btn').count();
-  rec('U', '管理画面の「返品」に申し込みが写真付きで届く', '申し込みと写真が表示', thumbs >= 2, `写真 ${thumbs} 枚`);
-
-  // ===== K：お客様画面の URL =====
-  await s.click('[data-tab=qr]'); await s.waitForTimeout(1000);
-  const url = await s.locator('#customer-url-open').innerText();
-  rec('K', '「店舗 QR」にお客様画面の URL が表示される', '/s/shop-001', url === B + '/s/shop-001', url.replace(B, ''));
-  await s.click('#customer-url-copy');
-  const copied = await s.evaluate(() => navigator.clipboard.readText());
-  rec('K', '「コピー」で URL がコピーされる', '同じ URL', copied === url, copied.replace(B, ''));
-  const [cart] = await Promise.all([st.waitForEvent('page'), s.click('#customer-url-open')]); await cart.waitForLoadState();
-  rec('K', 'URL を押すとお客様と同じカート画面が開く', '/s/shop-001 の「ご注文」', new URL(cart.url()).pathname === '/qr-order/s/shop-001' && (await cart.title()) === 'ご注文', new URL(cart.url()).pathname + ' ' + (await cart.title()));
-  await cart.close();
-  await s.selectOption('#qr-rotation', { index: 1 }); await s.waitForTimeout(1200);
-  const rotated = await s.locator('#customer-url-open').innerText();
-  const rc = await st.newPage(); await rc.goto(rotated); await rc.waitForTimeout(1200);
-  const gateHidden = await rc.locator('#gate').isHidden(); await rc.close();
-  rec('K', 'QR コードの更新を有効にすると、いま使える合言葉付きの URL に変わり、その URL で注文できる', '合言葉付き、期限切れの案内が出ない', /\?t=/.test(rotated) && gateHidden, rotated.replace(B, '') + ' / 案内なし=' + gateHidden);
-  await s.selectOption('#qr-rotation', '0'); await s.waitForTimeout(1000);
-  rec('K', '更新を無効に戻すと、元の URL に戻る', '/s/shop-001', (await s.locator('#customer-url-open').innerText()) === B + '/s/shop-001', (await s.locator('#customer-url-open').innerText()).replace(B, ''));
+  // ===== K：お客様画面の URL API =====
   const noLogin = await fetch(B + '/api/staff/stores/shop-001/customer-url');
   rec('K', 'ログインしていないと URL を取得できない', '401', noLogin.status === 401, noLogin.status);
-  const spc = await staffContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const sp = await spc.newPage(); watch(sp); await openStaff(sp, 'qr'); await sp.waitForTimeout(800);
-  const spOv = await sp.evaluate(() => document.documentElement.scrollWidth > innerWidth);
-  const ov2 = await s.evaluate(() => document.documentElement.scrollWidth > innerWidth);
-  rec('K', '入口用 QR の欄と同じデザイン（見出し・リンク・説明）で、PC とスマートフォンで崩れずに表示される', '横にはみ出さない', !spOv && !ov2, `はみ出し PC=${ov2} スマホ=${spOv}`);
-  await spc.close();
 
-  // ===== E：電子棚札（管理画面） =====
-  await s.click('[data-tab=orders]'); await s.click('[data-tab=qr]');
-  await s.waitForSelector('.esl-row img'); await s.waitForTimeout(800);
-  const rows = await s.locator('.esl-row').count();
-  const loaded = await s.locator('.esl-row img').evaluateAll((imgs) => imgs.every((i) => i.complete && i.naturalWidth === 296 && i.naturalHeight === 128));
-  rec('E', '「店舗 QR」の「電子棚札」に、商品ごとの表示のプレビューと画像 URL が並ぶ', '商品 5 件、すべて 296×128 で表示', rows === 5 && loaded, `${rows} 件 / 表示=${loaded}`);
-  await s.locator('.esl-row').first().getByRole('button', { name: 'コピー' }).click();
-  const eslUrl = await s.evaluate(() => navigator.clipboard.readText());
-  rec('E', '画像 URL をコピーできる', '/esl/<商品ID>.jpg', /\/esl\/p-00\d\.jpg$/.test(eslUrl), eslUrl.replace(B, ''));
-  // 棚札の画像の QR を実際に読み取り、カートに入るかまで確かめる
-  const decoded = await s.evaluate(async (src) => {
+  // ===== E：電子棚札（QR 読み取り → カート） =====
+  const decoded = await p.evaluate(async (src) => {
     await new Promise((ok, ng) => { if (window.jsQR) return ok(); const sc = document.createElement('script'); sc.src = '/qr-order/vendor/jsQR.js'; sc.onload = ok; sc.onerror = ng; document.head.append(sc); });
     const im = new Image(); im.src = src; await im.decode();
-    const cv = document.createElement('canvas'); cv.width = im.width * 4; cv.height = im.height * 4; // カメラで写した大きさに近づける
+    const cv = document.createElement('canvas'); cv.width = im.width * 4; cv.height = im.height * 4;
     const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, cv.width, cv.height);
     const d = g.getImageData(0, 0, cv.width, cv.height);
     const qr = window.jsQR(d.data, d.width, d.height);
@@ -143,27 +105,13 @@ try {
   await shop.goto(decoded || B + '/p/p-003'); await shop.waitForSelector('#cart-bar:not([hidden])');
   rec('E', '棚札の QR から開くと、その商品がカートに入る', '緑茶 500ml が 1 点', (await text(shop.locator('#cart-bar'))).includes('150'), await text(shop.locator('#cart-bar')));
   await shop.close();
-  await s.selectOption('#qr-rotation', { index: 1 }); await s.waitForTimeout(800);
-  const warn = await s.locator('#esl-rotation-warn').isVisible();
-  await s.selectOption('#qr-rotation', '0'); await s.waitForTimeout(800);
-  rec('E', 'QR コードの更新を有効にすると、棚札の QR からは注文できない旨を表示する', '注意を表示、無効に戻すと消える', warn && (await s.locator('#esl-rotation-warn').isHidden()), `表示=${warn}`);
 
   // ===== Q：削除した機能 =====
   await p.goto(B + '/s/shop-001?from=staff'); await p.waitForTimeout(1000);
+  const st = await staffContext({ viewport: { width: 1280, height: 850 } });
   const staffTools = await st.newPage(); await staffTools.goto(B + '/s/shop-001?from=staff'); await staffTools.waitForTimeout(1000);
   const tools = await staffTools.locator('#staff-tools, #screen-scan, #image-scan').count(); await staffTools.close();
   rec('Q', 'ログイン中に以前のスタッフ用のアドレス（?from=staff）で開いても、スタッフ用の読み取りは表示されない', '表示しない', tools === 0, `ボタン ${tools} 件`);
-  rec('Q', '管理画面の「店舗 QR」に、スタッフ用にお客様の画面を開くリンクがない', 'リンクなし', (await s.locator('#shop-test-link').count()) === 0, (await s.locator('#shop-test-link').count()) + ' 件');
-  rec('Q', '管理画面の「店舗 QR」に、入口用の QR コードが表示されない', 'QR なし、表示専用の画面へのリンクあり', (await s.locator('#qr, #qr-link').count()) === 0 && (await s.locator('#display-link').count()) === 1, `QR ${await s.locator('#qr, #qr-link').count()} 件`);
-  const disp = await st.newPage(); watch(disp); await disp.goto(B + '/staff/display?store=shop-001'); await disp.waitForTimeout(1000);
-  const dispQr = await disp.locator('img, svg').count(); await disp.close();
-  rec('Q', '表示専用の画面には、これまでどおり入口用の QR コードが表示される', 'QR を表示', dispQr > 0, dispQr > 0 ? '表示あり' : '表示なし');
-  await s.click('[data-tab=products]'); await s.waitForSelector('.product-admin img');
-  rec('Q', '管理画面の商品タブに、テスト用カートが表示されない', '表示しない、商品一覧は表示', (await s.locator('#test-cart, #tc-scan').count()) === 0 && (await s.locator('.product-admin').count()) === 5, `テスト用カート ${await s.locator('#test-cart').count()} 件 / 商品 ${await s.locator('.product-admin').count()} 件`);
-  const [print] = await Promise.all([st.waitForEvent('page'), s.locator('.product-admin img').first().click()]);
-  rec('Q', '商品の QR を押すと、これまでどおり印刷用に開く', '/staff/product-qr.svg', new URL(print.url()).pathname === '/qr-order/staff/product-qr.svg', new URL(print.url()).pathname);
-  for (const t of ['orders', 'returns', 'chat', 'qr', 'me']) await s.click(`[data-tab=${t}]`);
-  await s.waitForTimeout(500);
   await st.close();
   rec('U', '画面の操作中にプログラムのエラーが起きない', 'エラー 0 件', errs.length === 0, errs.length + ' 件 ' + errs.join(' / ').slice(0, 80));
 } catch (e) {

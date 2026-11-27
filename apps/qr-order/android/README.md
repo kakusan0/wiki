@@ -1,20 +1,18 @@
 # Android アプリ（Android Studio プロジェクト）
 
-いまのサイトを、Chrome の機能を使って全画面で開く Android アプリです（Trusted Web Activity）。
-画面や処理はすべてサイト側にあるので、サイトを更新すればアプリの中身も更新されます。パスキー、カメラ、Google Pay もブラウザと同じように動きます。
-
-同じプロジェクトから 2 種類のアプリを作れます。
+いまのサイトを、Chrome の機能を使って全画面で開くお客様用 Android アプリです（Trusted Web Activity）。
+画面や処理はすべてサイト側にあるので、サイトを更新すればアプリの中身も更新されます。カメラや Google Pay もブラウザと同じように動きます。
+（※店舗管理用の Android アプリは別リポジトリ `kakusan0/qr-order` に分離しました。）
 
 | 種類（ビルドバリアント） | アプリ名 | 最初に開く画面 | パッケージ名 |
 | --- | --- | --- | --- |
-| `staff` | 店舗管理 | `/staff` | `dev.workers.gmakihiro.qrorder.staff` |
 | `customer` | QR オーダー | `/s/<店舗ID>` | `dev.workers.gmakihiro.qrorder.customer` |
 
 ## Android Studio で開く
 
 1. Android Studio の「Open」で、この `android` フォルダを選ぶ（リポジトリの一番上ではなく `android`）。
 2. 初回は必要な部品のダウンロードと同期に数分かかる。
-3. 左下の「Build Variants」で `staffDebug` か `customerDebug` を選ぶ。
+3. 左下の「Build Variants」で `customerDebug` を選ぶ。
 4. 実機を USB でつなぐかエミュレーターを起動して、▶（Run）を押す。
 
 端末に Chrome が入っている必要があります。
