@@ -157,6 +157,24 @@
   }
   const expired = () => { notice('この QR コードは期限が切れています。店頭に表示されている新しい QR コードを読み取ってください。', true); signal('rejected'); return false; };
 
+  // 自サイトに加え、店舗管理アプリ（qr-order.infoapp.org）で生成された QR も受け付ける
+  const QR_ORIGINS = new Set([location.origin, 'https://qr-order.infoapp.org']);
+  /** 読み取った QR の URL を解釈する。店舗・商品の QR でなければ null */
+  function parseQrUrl(text) {
+    let url;
+    try { url = new URL(text); } catch { return null; }
+    if (!QR_ORIGINS.has(url.origin)) return null;
+    const path = url.pathname.replace(/^\/qr-order(?=\/)/, '');
+    const m = path.match(/^\/(s|p)\/([^/]+)$/);
+    if (!m) return null;
+    let id;
+    try { id = decodeURIComponent(m[2]); } catch { return null; }
+    if (!id) return null;
+    const token = url.searchParams.get('t') || '';
+    if (m[1] === 'p') return { kind: 'product', productId: id, token };
+    return { kind: 'store', storeId: id, add: url.searchParams.get('add') || '', token };
+  }
+
   /** 読み取った QR・バーコードの文字列を解釈してカートに追加する */
   async function handleCode(text) {
     // 商品バーコード（JAN）：登録されている商品を探す
@@ -166,21 +184,31 @@
       if (!p) { notice('このバーコードの商品は販売していません。', true); signal('rejected'); return false; }
       return addProduct(p.id);
     }
-    let url;
-    try { url = new URL(text); } catch { notice('商品の QR コードではありません。', true); signal('rejected'); return false; }
-    const parts = url.pathname.split('/'); // /qr-order/s/<店舗>
-    const add = url.searchParams.get('add');
-    if (url.origin !== location.origin || parts[2] !== 's') { notice('商品の QR コードではありません。', true); signal('rejected'); return false; }
-    if (decodeURIComponent(parts[3] || '') !== storeId) { notice('別の店舗の QR コードです。', true); signal('rejected'); return false; }
+    const parsed = parseQrUrl(text);
+    if (!parsed) { notice('商品の QR コードではありません。', true); signal('rejected'); return false; }
+    if (parsed.kind === 'product') {
+      // 電子棚札・店舗管理アプリの商品 QR（/p/<商品ID>）
+      if (rotation) {
+        if (parsed.token) {
+          if (!(await redeem(parsed.token))) return expired();
+        } else if (!hasPass()) {
+          notice('先に、店頭に表示されている QR コードを読み取ってください。', true);
+          signal('rejected');
+          return false;
+        }
+      }
+      return addProduct(parsed.productId);
+    }
+    if (parsed.storeId !== storeId) { notice('別の店舗の QR コードです。', true); signal('rejected'); return false; }
     // 定期更新が有効な店舗では、QR に入っている合言葉が有効かを確かめる
-    if (rotation && !(await redeem(url.searchParams.get('t')))) return expired();
-    if (!add) {
+    if (rotation && !(await redeem(parsed.token))) return expired();
+    if (!parsed.add) {
       // 店舗の QR（入口用）
       notice(rotation ? '店頭の QR コードを確認しました。商品をスキャンしてください。' : '店舗の QR コードです。商品の QR コードかバーコードを読み取ってください。', !rotation);
       signal(rotation ? 'added' : 'rejected');
       return rotation;
     }
-    return addProduct(add);
+    return addProduct(parsed.add);
   }
 
   // --- Stripe（カード / Apple Pay / Google Pay / Link / PayPay。表示される手段は Stripe の設定に従う） ---
@@ -452,11 +480,11 @@
     $('scan-live').className = 'scan-live' + (ok ? ' ok' : ng ? ' ng' : '');
   }
   function describeQr(text) {
-    try {
-      const u = new URL(text);
-      const p = products.get(u.searchParams.get('add') || '');
-      if (u.origin === location.origin && u.pathname.startsWith('/qr-order/s/')) return p ? 'QR コード: ' + p.name : 'QR コード: 店舗・商品の QR';
-    } catch { /* URL でない QR */ }
+    const parsed = parseQrUrl(text);
+    if (parsed) {
+      const p = products.get(parsed.kind === 'product' ? parsed.productId : parsed.add);
+      return p ? 'QR コード: ' + p.name : 'QR コード: 店舗・商品の QR';
+    }
     return 'QR コード: ' + text.slice(0, 40);
   }
 
