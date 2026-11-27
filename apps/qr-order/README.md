@@ -24,6 +24,8 @@
 
 ## セットアップ
 
+このリポジトリ（`wiki` Worker、`https://wiki.infoapp.org/qr-order/...`）での本番設定（Cloudflare Access の Webhook 例外・`wiki` Worker のシークレット・Stripe / Resend 設定）の手順は [docs/cloudflare-setup.md](docs/cloudflare-setup.md) を参照してください。
+
 ```bash
 npm install
 npx wrangler login
@@ -41,8 +43,8 @@ npm run deploy
 
 Stripe 側の設定:
 
-1. ダッシュボードの「決済手段」でカード / Apple Pay / Google Pay / Link / PayPay を有効化し、公開ドメインを「支払い方法のドメイン」に登録（Apple Pay に必須）。
-2. Webhook エンドポイント `https://<ドメイン>/api/stripe/webhook` を追加し、イベント `payment_intent.succeeded` を選択。署名シークレットを `STRIPE_WEBHOOK_SECRET` に設定。
+1. ダッシュボードの「決済手段」でカード / Apple Pay / Google Pay / Link / PayPay を有効化し、公開ドメイン（`wiki.infoapp.org`）を「支払い方法のドメイン」に登録（Apple Pay に必須）。
+2. Webhook エンドポイント `https://wiki.infoapp.org/qr-order/api/stripe/webhook` を追加し、イベント `payment_intent.succeeded` を選択。署名シークレットを `STRIPE_WEBHOOK_SECRET` に設定（Cloudflare Access の Bypass 例外も必要。手順は [docs/cloudflare-setup.md](docs/cloudflare-setup.md)）。
 3. まずテストキー（`sk_test_` / `pk_test_`）で実機確認してから本番キーに切り替え。
 
 ローカル開発は `.dev.vars.example` を `.dev.vars` にコピーし、`npm run db:migrate:local && npm run db:seed:local && npm run dev`。

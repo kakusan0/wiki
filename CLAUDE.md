@@ -49,7 +49,9 @@
 ## ログイン・守り方
 - **サイト全体に Cloudflare Access**（Zero Trust の無料プラン、メールのワンタイム PIN、許可したメールアドレスだけ）。チームのドメインは `prodserver.cloudflareaccess.com`。ログインは 30 日有効。
   - Access のかからない入口を作らないため、`workers_dev: false`・`preview_urls: false`。独自ドメイン `wiki.infoapp.org` だけ。
-  - **例外**：`wiki.infoapp.org/netspeed/api/ingest` だけ Access を通さない（Bypass のアプリ）。自宅の PC が毎分送る受け口で、`NETSPEED_INGEST_TOKEN` の鍵で守る。
+  - **例外（Bypass のアプリ）**：
+    - `wiki.infoapp.org/netspeed/api/ingest`：自宅の PC が毎分送る受け口。`NETSPEED_INGEST_TOKEN` の鍵で守る。
+    - `wiki.infoapp.org/qr-order/api/stripe/webhook`：Stripe からの決済完了通知の受け口。`STRIPE_WEBHOOK_SECRET` の署名検証で守る（設定手順：`apps/qr-order/docs/cloudflare-setup.md`）。
 - 作品ごとのログインは Access とは別に残している（利用者の決定）：
   - QR オーダーの店舗管理画面（`/qr-order/staff`）：Web 版の画面は削除し、専用 Android アプリ（`kakusan0/qr-order`）に分離。`wiki` にはお客様画面のみを残す。
   - netspeed の結果のページ：合言葉（`NETSPEED_VIEW_PASSWORD`）。
