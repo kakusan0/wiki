@@ -291,6 +291,7 @@
   // --- 位置情報（GPS）：お支払いの前に確認する ---
   let geo = null;
   async function checkGeo(quiet) {
+    $('geo-check').disabled = true;
     $('geo-state').textContent = '現在地を確認しています…';
     $('geo-state').className = 'geo-state';
     try {
@@ -305,6 +306,8 @@
       $('geo-state').className = 'geo-state ng';
       if (!quiet) $('geo-box').classList.add('need');
       return false;
+    } finally {
+      $('geo-check').disabled = false;
     }
   }
   $('geo-check').onclick = () => checkGeo(false);
@@ -653,7 +656,7 @@
       const dx = t.clientX - x0, dy = t.clientY - y0;
       // 横に 60px 以上、縦の動きの 2 倍以上、0.6 秒以内だけをフリックとみなす
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - t0 > 600) return;
-      if (dx < 0) setView('cart', 1); else setView('scan', -1);
+      if (dx < 0) { setView('cart', 1); if (!geo && cart.size) checkGeo(true); } else setView('scan', -1);
     }, { passive: true });
     area.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
   })();
