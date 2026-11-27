@@ -41,7 +41,7 @@
 
 ## 作品 wiki のページ（`site/`）
 - `site/works.mjs` の `WORKS` から `site/build.mjs` が HTML を作る。見た目は `site/style.css`。
-- QR オーダーのページ（`/wiki/qr-order/#pages`）に「画面の一覧」をタブで載せる（`pages`：info・customer・staff・esl・webhook）。
+- QR オーダーのページ（`/wiki/qr-order/#pages`）に「画面の一覧」をタブで載せる（`pages`：info・customer・esl・webhook。Web の店舗管理画面は削除し、専用 Android アプリ側 `kakusan0/qr-order` に分離）。
   - タブは `site/tabs.js`（ARIA のタブ、← → Home End）。JS が動くまでタブの列は隠し、パネルは全部見える。
   - 前のページ一覧 `/qr-order/wiki`・`/qr-order/wiki.html` は、ここへ 301（`apps/qr-order/src/index.ts`）。ページ一覧のパスキーの確認はなくした。
   - 設計：`docs/superpowers/specs/2026-11-25-qr-order-pages-design.md`。
@@ -51,7 +51,7 @@
   - Access のかからない入口を作らないため、`workers_dev: false`・`preview_urls: false`。独自ドメイン `wiki.infoapp.org` だけ。
   - **例外**：`wiki.infoapp.org/netspeed/api/ingest` だけ Access を通さない（Bypass のアプリ）。自宅の PC が毎分送る受け口で、`NETSPEED_INGEST_TOKEN` の鍵で守る。
 - 作品ごとのログインは Access とは別に残している（利用者の決定）：
-  - QR オーダーの店舗管理画面（`/qr-order/staff`）：**パスキーのログインを残す**（変えない）。
+  - QR オーダーの店舗管理画面（`/qr-order/staff`）：Web 版の画面は削除し、専用 Android アプリ（`kakusan0/qr-order`）に分離。`wiki` にはお客様画面のみを残す。
   - netspeed の結果のページ：合言葉（`NETSPEED_VIEW_PASSWORD`）。
 - 作品のページを開いたときに出るログインは、Access ではなく作品のログイン。シークレットウィンドウで開くと Access の画面が出ることを確かめてある（2026-11-26）。
 

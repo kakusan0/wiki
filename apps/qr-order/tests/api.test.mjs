@@ -170,17 +170,17 @@ rec('C', 'スタッフの返信がお客様の画面に届く', '店舗スタッ
 r = await j('POST', `/api/staff/chat/${thread.id}`, { body: 'x' }, { cookie: STAFF, headers: { Origin: 'https://evil.example' } });
 rec('S', '他のサイトからの書き込み（CSRF）を拒否する', '403 forbidden', r.status === 403, `${r.status} ${r.data.error}`);
 
-// ===== 管理画面・ログイン =====
+// ===== 管理画面（Web 削除済み）・API 認証 =====
 r = await j('GET', '/staff');
-rec('S', 'ログインしていないと管理画面は開けない', 'ログイン画面へ移動', r.status === 302 && r.loc?.includes('/staff/login'), `${r.status} → ${r.loc}`);
+rec('S', 'Web 版の店舗管理画面（/staff）は削除されており 404 を返す', '404', r.status === 404, r.status);
+r = await j('GET', '/staff/login');
+rec('S', 'Web 版のスタッフログイン画面（/staff/login）は削除されており 404 を返す', '404', r.status === 404, r.status);
 r = await j('GET', '/api/staff/orders?store=shop-001');
 rec('S', 'ログインしていないと管理用のデータは取れない', '401', r.status === 401, r.status);
 r = await j('GET', '/api/staff/orders?store=shop-001', undefined, { cookie: 'staff_session=forged' });
 rec('S', '偽のログイン情報では管理用のデータは取れない', '401', r.status === 401, r.status);
 r = await j('GET', '/guide/staff');
-rec('S', 'スタッフ用ガイドはログインしていないと開けない', 'ログイン画面へ移動', r.status === 302 && r.loc?.includes('next=%2Fqr-order%2Fguide%2Fstaff'), `${r.status} → ${r.loc}`);
-r = await j('GET', '/guide/staff', undefined, { cookie: STAFF });
-rec('S', 'ログイン中はスタッフ用ガイドを開ける', '200', r.status === 200, r.status);
+rec('S', 'Web 版のスタッフ用ガイド（/guide/staff）は削除されており 404 を返す', '404', r.status === 404, r.status);
 r = await j('GET', '/wiki');
 rec('S', 'ページ一覧（/wiki）は、作品 wiki の「画面の一覧」へ移る（パスキーの確認なし）', '301 → /wiki/qr-order/#pages', r.status === 301 && new URL(r.loc || '', B).pathname === '/wiki/qr-order/' && (r.loc || '').endsWith('#pages'), `${r.status} → ${r.loc}`);
 r = await j('POST', '/api/staff/products', { storeId: 'shop-001', name: 'テスト商品', price: 120, taxRate: 8 }, { cookie: STAFF, headers: { Origin: new URL(B).origin } });

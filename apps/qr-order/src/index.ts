@@ -2,12 +2,6 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
-import qrcode from 'qrcode-generator';
-import staffHtml from './staff.html';
-import loginHtml from './login.html';
-import setupHtml from './setup.html';
-import displayHtml from './display.html';
-import guideStaffHtml from './guide-staff.html';
 import { receiptHtml, returnAcceptedHtml } from './mail';
 import { renderEsl } from './esl';
 import {
@@ -1204,33 +1198,10 @@ app.post('/api/staff/logout', async (c) => {
   return c.json({ ok: true });
 });
 
-app.get('/staff/setup', (c) => c.html(setupHtml, 200, { 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' }));
-app.get('/staff/login', (c) => c.html(loginHtml, 200, { 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' }));
-
-// スタッフ用の操作ガイド：管理画面にログインしている人だけに見せる（未ログインならログイン後にここへ戻す）
-app.get('/guide/staff', async (c) => {
-  if (!(await readSession(c))) return c.redirect('/staff/login?next=' + encodeURIComponent(bp(c) + '/guide/staff'));
-  return c.html(guideStaffHtml, 200, { 'Cache-Control': 'private, no-store', 'X-Frame-Options': 'DENY', 'X-Robots-Tag': 'noindex' });
-});
-app.get('/guide/staff.html', (c) => c.redirect('/guide/staff', 301));
-
 // ページ一覧は作品 wiki の「画面の一覧」にある（wiki 全体を Cloudflare Access で守る）。パスの頭を付けないよう、絶対 URL で返す
 app.get('/wiki', (c) => c.redirect(new URL('/wiki/qr-order/#pages', c.req.url).href, 301));
 app.get('/wiki.html', (c) => c.redirect(new URL('/wiki/qr-order/#pages', c.req.url).href, 301));
 
-// 画面：未ログインならログイン画面へ
-app.use('/staff', async (c, next) => {
-  const session = await readSession(c);
-  if (!session) return c.redirect('/staff/login');
-  c.set('session', session);
-  await next();
-});
-app.use('/staff/*', async (c, next) => {
-  const session = await readSession(c);
-  if (!session) return c.text('Unauthorized', 401);
-  c.set('session', session);
-  await next();
-});
 // API：ログイン必須。書き込みは同じサイトからの操作に限る（CSRF 対策）
 app.use('/api/staff/*', async (c, next) => {
   const session = await readSession(c);
@@ -1247,18 +1218,9 @@ const adminOnly = createMiddleware<{ Bindings: Env; Variables: { session: Sessio
   await next();
 });
 
-app.get('/staff', (c) => c.html(staffHtml, 200, { 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' }));
 app.get('/api/staff/me', (c) => c.json(c.get('session')));
 
 // ---------- スタッフ：注文 ----------
-
-function qrSvg(c: C, url: string) {
-  const qr = qrcode(0, 'M');
-  qr.addData(url);
-  qr.make();
-  // 定期更新される QR が古いまま表示されないよう、保存させない
-  return c.body(qr.createSvgTag({ cellSize: 8, margin: 32, scalable: true }), 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
-}
 
 // お客様画面（カート）の URL。QR の定期更新が有効なら、いま使える合言葉付きの URL を返す
 app.get('/api/staff/stores/:id/customer-url', async (c) => {
@@ -1302,26 +1264,6 @@ app.get('/esl/:file', async (c) => {
   c.executionCtx.waitUntil(cache.put(key, new Response(jpg, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000' } })));
   return c.body(jpg, 200, headers);
 });
-
-app.get('/staff/qr.svg', async (c) => {
-  const store = await getStoreQr(c.env, c.req.query('store') ?? '');
-  if (!store) return c.text('store not found', 404);
-  c.header('X-QR-Rotate-Minutes', String(store.qr_rotate_minutes));
-  return qrSvg(c, await qrUrl(site(c), store));
-});
-
-// 商品QR：読み取ると注文画面が開き、その商品がカートに入る
-app.get('/staff/product-qr.svg', async (c) => {
-  const product = await c.env.DB.prepare(`SELECT id, store_id FROM products WHERE id = ?`)
-    .bind(c.req.query('id') ?? '')
-    .first<{ id: string; store_id: string }>();
-  const store = product ? await getStoreQr(c.env, product.store_id) : null;
-  if (!product || !store) return c.text('product not found', 404);
-  return qrSvg(c, await qrUrl(site(c), store, product.id));
-});
-
-// 入口のタブレットなどに映しておく、店舗 QR の表示専用画面
-app.get('/staff/display', (c) => c.html(displayHtml, 200, { 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' }));
 
 app.get('/api/staff/stores', async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT id, name, qr_rotate_minutes AS qrRotateMinutes, lat, lng, geofence_m AS geofence FROM stores ORDER BY id`).all();
@@ -2052,13 +1994,12 @@ app.post('/api/staff/accounts', adminOnly, async (c) => {
   await c.env.DB.prepare(`INSERT INTO staff (id, email, role, created_at) VALUES (?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), email, body.role, nowIso())
     .run();
-  // 案内メール。届かなくてもアカウントは作成済みなので、セットアップ画面の URL を口頭などで伝えればよい
-  const url = `${site(c)}/staff/setup`;
+  // 案内メール。届かなくてもアカウントは作成済みなので、店舗管理アプリからセットアップすればよい
   const invited = await sendMail(
     c.env,
     email,
     '【店舗管理】スタッフとして登録されました',
-    `店舗管理画面のスタッフとして登録されました。\n\n次のページを開き、このメールアドレスを入力してセットアップしてください。\n${url}\n\n確認コードがメールで届いたあと、端末にパスキー（指紋・顔・画面ロック）を登録します。以後はパスキーだけでログインできます。`,
+    `店舗管理アプリのスタッフとして登録されました。\n\nAndroid 用の店舗管理アプリを開き、初回セットアップでこのメールアドレスを入力してください。\n\n確認コードがメールで届いたあと、端末にパスキー（指紋・顔・画面ロック）を登録します。以後はパスキーだけでログインできます。`,
   );
   return c.json({ ok: true, invited }, 201);
 });
